@@ -1,5 +1,5 @@
 // --- CONSTANTS ---
-const API_URL = 'https://script.google.com/macros/s/AKfycbzYZ3767U3Exs3DXo8ksEe3qPbHjshxqyd1PKPTIn37WJfZJCZ_DB8LVnH-OH30jECFBg/exec';
+const API_URL = 'https://script.google.com/macros/s/AKfycbwm2pHn9-iSFOVmBDu1skr1sjexKV385mo5BkzwWdKxEi6k9RQJeRojuIimqUiLWVaVdg/exec';
 const SESSION_DURATION = 24 * 60 * 60 * 1000;
 const DEFAULT_SESSION_ID = 'default-session';
 
@@ -390,8 +390,20 @@ async function loginAdminFromPage() {
             password: pass
         });
 
-        const response = await fetch(`${API_URL}?${params.toString()}`);
-        const result = await response.json();
+        const url = `${API_URL}?${params.toString()}`;
+        console.log("Mencoba login ke:", url);
+        
+        const response = await fetch(url);
+        const text = await response.text();
+        console.log("Respon mentah dari GAS:", text);
+
+        let result;
+        try {
+            result = JSON.parse(text);
+        } catch (e) {
+            console.error("Gagal mengurai JSON:", e);
+            throw new Error("Respon bukan JSON valid. GAS mungkin mengembalikan halaman error HTML.");
+        }
 
         if (result.status === "success") {
             currentUser = { username: user, role: result.role };
@@ -406,7 +418,11 @@ async function loginAdminFromPage() {
         }
     } catch (error) {
         console.error("Login error:", error);
-        alert("Koneksi gagal! Pastikan Google Apps Script sudah di-Deploy ulang sebagai 'Anyone'.");
+        let errorMsg = "Terjadi kesalahan koneksi ke server.";
+        if (error.message.includes("JSON")) {
+            errorMsg = "Server tidak mengembalikan data yang benar. Kemungkinan ada error di kode Google Apps Script Anda.";
+        }
+        alert(`Koneksi Gagal!\n\n${errorMsg}\n\nTips:\n1. Pastikan GAS di-Deploy sebagai 'Anyone'.\n2. Gunakan 'New Version' saat update Deployment.\n3. Periksa Console Log (F12) untuk detail error.`);
     } finally {
         btn.innerHTML = 'Masuk Sekarang';
         btn.disabled = false;
@@ -436,8 +452,20 @@ async function joinSessionByCode() {
     btn.innerHTML = '...';
 
     try {
-        const response = await fetch(`${API_URL}?action=join_session&code=${code}`);
-        const result = await response.json();
+        const url = `${API_URL}?action=join_session&code=${code}`;
+        console.log("Mencoba gabung ke sesi:", url);
+        
+        const response = await fetch(url);
+        const text = await response.text();
+        console.log("Respon mentah join_session:", text);
+
+        let result;
+        try {
+            result = JSON.parse(text);
+        } catch (e) {
+            console.error("Gagal mengurai JSON join_session:", e);
+            throw new Error("Respon bukan JSON valid.");
+        }
 
         if (result.status === 'success') {
             if (!sessions[code]) {
@@ -1302,8 +1330,17 @@ async function fetchQuestionsFromServer() {
     if (!session || !session.shortCode) return;
 
     try {
-        const response = await fetch(`${API_URL}?action=get_questions&code=${session.shortCode}`);
-        const questions = await response.json();
+        const url = `${API_URL}?action=get_questions&code=${session.shortCode}`;
+        const response = await fetch(url);
+        const text = await response.text();
+        
+        let questions;
+        try {
+            questions = JSON.parse(text);
+        } catch (e) {
+            console.warn("Silent failure: Gagal mengurai JSON pertanyaan.", text);
+            return;
+        }
         
         if (Array.isArray(questions)) {
             session.questions = questions.map((q, idx) => ({
