@@ -393,7 +393,18 @@ async function loginAdminFromPage() {
         const url = `${API_URL}?${params.toString()}`;
         console.log("Mencoba login ke:", url);
         
-        const response = await fetch(url);
+        // Menambahkan mode: 'cors' dan cache: 'no-cache' untuk stabilitas
+        const response = await fetch(url, {
+            method: 'GET',
+            mode: 'cors',
+            cache: 'no-cache',
+            redirect: 'follow'
+        });
+
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
         const text = await response.text();
         console.log("Respon mentah dari GAS:", text);
 
@@ -402,7 +413,11 @@ async function loginAdminFromPage() {
             result = JSON.parse(text);
         } catch (e) {
             console.error("Gagal mengurai JSON:", e);
-            throw new Error("Respon bukan JSON valid. GAS mungkin mengembalikan halaman error HTML.");
+            // Jika respon diawali dengan <!DOCTYPE html>, berarti GAS mengirimkan halaman error HTML
+            if (text.trim().startsWith("<!DOCTYPE")) {
+                throw new Error("GAS mengembalikan halaman HTML/Error. Periksa kode 'Kode.gs' Anda.");
+            }
+            throw new Error("Respon bukan JSON valid.");
         }
 
         if (result.status === "success") {
