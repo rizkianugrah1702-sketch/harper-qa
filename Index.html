@@ -1,0 +1,2134 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TanyaAja - Q&A System</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.23/jspdf.plugin.autotable.min.js"></script>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body class="bg-slate-50 min-h-screen flex flex-col">
+    <!-- Landing Page (Participant Join & Admin Login) -->
+    <div id="landing-page" class="fixed inset-0 z-[100] bg-white flex hidden overflow-hidden">
+        <!-- Left Side: Content -->
+        <div class="w-full lg:w-1/2 flex items-center justify-center p-8 lg:p-16 bg-white">
+            <div class="max-w-md w-full">
+                <!-- Participant Join View -->
+                <div id="join-form-view">
+                    <div class="mb-10 text-center lg:text-left">
+                        <div class="flex items-center justify-center lg:justify-start gap-3 mb-8">
+                            <div class="main-primary p-2.5 rounded-xl shadow-lg">
+                                <i data-lucide="message-square" class="text-white w-7 h-7"></i>
+                            </div>
+                            <h1 class="text-3xl font-extrabold text-slate-900 tracking-tight">Tanya<span class="main-text-primary">Aja</span></h1>
+                        </div>
+                        <h2 class="text-4xl font-black text-slate-900 mb-4 leading-tight">Gabung ke Sesi Q&A</h2>
+                        <p class="text-slate-500 text-lg">Masukkan kode sesi untuk mulai bertanya dan memberikan suara.</p>
+                    </div>
+
+                    <div class="space-y-6">
+                        <div class="bg-slate-50 p-6 rounded-3xl border-2 main-border-primary border-opacity-20 shadow-sm space-y-4">
+                            <div class="relative group">
+                                <div class="absolute left-5 top-1/2 -translate-y-1/2 text-2xl font-bold main-text-primary">#</div>
+                                <input type="text" id="join-session-code" class="w-full pl-12 pr-4 py-5 bg-white border-2 border-transparent rounded-2xl focus:main-border-primary outline-none transition-all text-2xl font-black text-slate-800 tracking-wider placeholder:text-slate-300 placeholder:font-bold" placeholder="KODE-SESI">
+                            </div>
+                            <button onclick="joinSessionByCode()" class="w-full main-primary hover:opacity-90 text-white py-5 rounded-2xl font-black text-xl shadow-xl transition-all active:scale-[0.98] flex items-center justify-center gap-3">
+                                Gabung Sesi
+                                <i data-lucide="arrow-right" class="w-6 h-6"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="mt-12 pt-8 border-t border-slate-100 flex items-center justify-between text-sm">
+                        <span class="text-slate-400">© 2026 TanyaAja System</span>
+                        <button onclick="showAdminAuthPage()" class="text-slate-400 font-bold hover:main-text-primary transition-colors flex items-center gap-2">
+                            <i data-lucide="lock" class="w-4 h-4"></i>
+                            Login Admin
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Side: Decorative -->
+        <div class="hidden lg:block lg:w-1/2 relative group/bg">
+            <div class="absolute inset-0 landing-bg-image"></div>
+            <div class="absolute inset-0 bg-black/40"></div>
+            
+
+            <div class="absolute inset-0 flex items-center justify-center p-16">
+                 <div class="max-w-md text-white flex flex-col items-center text-center -mt-12">
+                     <img src="assets/img/logo.png" alt="Logo" class="h-20 mb-10 w-auto">
+                    <h3 class="text-4xl font-bold mb-8 leading-tight">Q&A EVENT- HARPER HOTEL PALEMBANG</h3>
+                    <div class="space-y-6 w-full text-left">
+                        <div class="flex items-start gap-4 group">
+                            <div class="bg-white/20 p-2 rounded-xl backdrop-blur-md group-hover:bg-white/30 transition-all">
+                                <i data-lucide="check-circle-2" class="w-6 h-6"></i>
+                            </div>
+                            <p class="text-lg font-medium opacity-90">Sesi tanpa batas untuk setiap event Anda.</p>
+                        </div>
+                        <div class="flex items-start gap-4 group">
+                            <div class="bg-white/20 p-2 rounded-xl backdrop-blur-md group-hover:bg-white/30 transition-all">
+                                <i data-lucide="check-circle-2" class="w-6 h-6"></i>
+                            </div>
+                            <p class="text-lg font-medium opacity-90">Akses QR Code instan untuk semua peserta.</p>
+                        </div>
+                        <div class="flex items-start gap-4 group">
+                            <div class="bg-white/20 p-2 rounded-xl backdrop-blur-md group-hover:bg-white/30 transition-all">
+                                <i data-lucide="check-circle-2" class="w-6 h-6"></i>
+                            </div>
+                            <p class="text-lg font-medium opacity-90">Moderasi real-time untuk diskusi yang sehat.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Master Dashboard (For Super Admin) -->
+    <div id="master-dashboard" class="fixed inset-0 z-[120] bg-slate-50 flex hidden flex-col overflow-y-auto">
+        <nav class="bg-white border-b px-8 h-20 flex items-center justify-between sticky top-0 z-10">
+            <div class="flex items-center gap-4">
+                <div class="bg-slate-900 p-2.5 rounded-xl">
+                    <i data-lucide="layout-grid" class="text-white w-6 h-6"></i>
+                </div>
+                <div>
+                    <h1 class="text-xl font-black text-slate-900 leading-none">Master<span class="main-text-primary">Control</span></h1>
+                    <p class="text-xs text-slate-400 font-bold mt-1 uppercase tracking-widest">Administrator Utama</p>
+                </div>
+            </div>
+            <div class="flex items-center gap-4">
+                <div class="flex items-center gap-2 px-4 py-2 bg-slate-100 rounded-full border border-slate-200">
+                    <div class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                    <span class="text-xs font-black text-slate-700 uppercase tracking-tighter">Sistem Aktif</span>
+                </div>
+                <button onclick="logoutAdmin()" class="p-2.5 text-slate-400 hover:text-red-600 transition-colors bg-white border border-slate-200 rounded-xl shadow-sm">
+                    <i data-lucide="log-out" class="w-5 h-5"></i>
+                </button>
+            </div>
+        </nav>
+
+        <main class="max-w-7xl mx-auto w-full p-8 space-y-10">
+            <!-- Header Welcome -->
+            <div class="flex flex-col md:flex-row md:items-end justify-between gap-6">
+                <div>
+                    <h2 class="text-4xl font-black text-slate-900 mb-2">Selamat Datang, Admin Utama</h2>
+                    <p class="text-slate-500 text-lg">Kelola ekosistem aplikasi dan kontrol akses dari satu tempat.</p>
+                </div>
+                <div class="flex gap-3">
+                    <button onclick="alert('Fitur tambah modul akan tersedia segera!')" class="bg-slate-900 hover:bg-black text-white px-6 py-3.5 rounded-2xl font-bold flex items-center gap-2 transition-all shadow-lg shadow-slate-200">
+                        <i data-lucide="plus" class="w-5 h-5"></i>
+                        Tambah Aplikasi Baru
+                    </button>
+                </div>
+            </div>
+
+            <!-- Stats Overview -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div class="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm flex items-center gap-6">
+                    <div class="w-14 h-14 bg-slate-50 rounded-2xl flex items-center justify-center main-text-primary">
+                        <i data-lucide="layers" class="w-8 h-8"></i>
+                    </div>
+                    <div>
+                        <div class="text-2xl font-black text-slate-900">1</div>
+                        <div class="text-sm font-bold text-slate-400 uppercase tracking-wider">Aplikasi Aktif</div>
+                    </div>
+                </div>
+                <div class="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm flex items-center gap-6">
+                    <div class="w-14 h-14 bg-blue-50 rounded-2xl flex items-center justify-center text-blue-600">
+                        <i data-lucide="users" class="w-8 h-8"></i>
+                    </div>
+                    <div>
+                        <div id="master-total-users" class="text-2xl font-black text-slate-900">0</div>
+                        <div class="text-sm font-bold text-slate-400 uppercase tracking-wider">Total User Akun</div>
+                    </div>
+                </div>
+                <div class="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm flex items-center gap-6">
+                    <div class="w-14 h-14 bg-green-50 rounded-2xl flex items-center justify-center text-green-600">
+                        <i data-lucide="shield" class="w-8 h-8"></i>
+                    </div>
+                    <div>
+                        <div class="text-2xl font-black text-slate-900">Normal</div>
+                        <div class="text-sm font-bold text-slate-400 uppercase tracking-wider">Status Keamanan</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- App Grid -->
+            <div class="space-y-6">
+                <h3 class="text-2xl font-black text-slate-900 flex items-center gap-3">
+                    <i data-lucide="box" class="w-6 h-6 main-text-primary"></i>
+                    Daftar Aplikasi & Modul
+                </h3>
+                <div id="master-modules-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <!-- Modules will be rendered here dynamically -->
+                </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Admin Login Page (Separate Page) -->
+    <div id="admin-auth-page" class="fixed inset-0 z-[110] bg-white flex hidden overflow-hidden">
+        <!-- Left Side: Login Form -->
+        <div class="w-full lg:w-1/2 flex items-center justify-center p-8 lg:p-16 bg-white">
+            <div class="max-w-md w-full">
+                <button onclick="hideAdminAuthPage()" class="mb-10 text-slate-400 hover:main-text-primary transition-colors flex items-center gap-2 font-bold group">
+                    <i data-lucide="arrow-left" class="w-5 h-5 group-hover:-translate-x-1 transition-transform"></i>
+                    Kembali ke Beranda
+                </button>
+
+                <div class="mb-10 text-center lg:text-left">
+                    <div class="flex items-center justify-center lg:justify-start gap-3 mb-8">
+                        <div class="bg-slate-900 p-2.5 rounded-xl shadow-lg shadow-slate-200">
+                            <i data-lucide="lock" class="text-white w-7 h-7"></i>
+                        </div>
+                        <h1 class="text-3xl font-extrabold text-slate-900 tracking-tight">Admin<span class="main-text-primary">Access</span></h1>
+                    </div>
+                    <h2 class="text-4xl font-black text-slate-900 mb-4 leading-tight">Login Admin</h2>
+                    <p class="text-slate-500 text-lg">Masuk sebagai Administrator Utama atau Admin untuk mengelola sesi dan moderasi.</p>
+                </div>
+
+                <div class="space-y-4">
+                    <div class="space-y-2">
+                        <label class="text-sm font-bold text-slate-700 ml-1">Username</label>
+                        <div class="relative">
+                            <i data-lucide="user" class="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 w-5 h-5"></i>
+                            <input type="text" id="admin-page-username" class="w-full pl-12 pr-4 py-4 bg-slate-50 border-2 border-transparent rounded-2xl focus:border-slate-900 outline-none transition-all font-medium text-slate-800" placeholder="Username admin">
+                        </div>
+                    </div>
+                    <div class="space-y-2">
+                        <label class="text-sm font-bold text-slate-700 ml-1">Password</label>
+                        <div class="relative">
+                            <i data-lucide="key-round" class="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 w-5 h-5"></i>
+                            <input type="password" id="admin-page-password" class="w-full pl-12 pr-4 py-4 bg-slate-50 border-2 border-transparent rounded-2xl focus:border-slate-900 outline-none transition-all font-medium text-slate-800" placeholder="••••••••">
+                        </div>
+                    </div>
+                    <button onclick="loginAdminFromPage()" class="w-full bg-slate-900 hover:bg-black text-white py-5 rounded-2xl font-black text-xl shadow-xl shadow-slate-200 transition-all active:scale-[0.98] flex items-center justify-center gap-3 mt-4">
+                        Masuk Sekarang
+                        <i data-lucide="shield-check" class="w-6 h-6"></i>
+                    </button>
+                </div>
+
+                <div class="mt-12 pt-8 border-t border-slate-100 text-center">
+                    <span class="text-slate-400 text-sm">© 2026 TanyaAja Admin Portal</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Side: Decorative (Same as Landing) -->
+        <div class="hidden lg:block lg:w-1/2 relative group/login-bg">
+            <div class="absolute inset-0 login-bg-image"></div>
+            
+            <div class="absolute inset-0 flex items-center justify-center p-16 text-center">
+                <div class="max-w-md text-white">
+                    <h3 class="text-4xl font-bold mb-6 leading-tight">Q&A EVENT- HARPER HOTEL PALEMBANG</h3>
+                    <p class="text-xl opacity-80 leading-relaxed">Kelola event Anda dengan mudah. Buat sesi baru, bagikan kode, dan pantau jalannya diskusi secara real-time.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Navigation -->
+    <nav id="main-nav" class="bg-white border-b sticky top-0 z-40 hidden">
+        <div class="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
+            <div class="flex items-center space-x-4">
+                <button onclick="toggleSidebar()" class="p-2 hover:bg-gray-100 rounded-lg lg:hidden hidden">
+                    <i data-lucide="menu" class="w-6 h-6 text-gray-600"></i>
+                </button>
+                <div class="flex items-center space-x-2 cursor-pointer" onclick="window.location.hash=''">
+                    <div class="main-primary p-2 rounded-lg">
+                        <i data-lucide="message-square" class="text-white w-6 h-6"></i>
+                    </div>
+                    <span class="font-bold text-xl text-gray-800 tracking-tight hidden sm:inline">TanyaAja</span>
+                </div>
+                <div class="h-6 w-px bg-gray-200 hidden sm:block"></div>
+                <span id="current-session-name" class="text-gray-500 font-medium truncate max-w-[150px] sm:max-w-xs">Memuat...</span>
+                <span id="header-session-code" class="text-[10px] opacity-60 font-mono tracking-tighter bg-gray-100 px-2 py-1 rounded-full">CODE: N/A</span>
+            </div>
+            
+            <div class="flex items-center gap-2 sm:gap-4">
+                <div class="flex bg-gray-100 p-1 rounded-lg">
+                    <button onclick="switchView('participant')" id="btn-participant" class="px-3 py-1.5 sm:px-4 rounded-md text-xs sm:text-sm font-medium transition-all bg-white shadow-sm main-text-primary">Peserta</button>
+                    <button onclick="switchView('presenter')" id="btn-presenter" class="px-3 py-1.5 sm:px-4 rounded-md text-xs sm:text-sm font-medium transition-all text-gray-600 hover:text-gray-900">Presenter</button>
+                </div>
+                <button id="nav-download-pdf" onclick="downloadQuestionsPDF()" class="hidden px-3 py-1.5 sm:px-4 rounded-lg text-xs sm:text-sm font-bold text-slate-600 hover:bg-slate-100 transition-all flex items-center gap-2 border border-slate-200 active:scale-95">
+                    <i data-lucide="file-text" class="w-4 h-4 main-text-primary"></i>
+                    <span class="hidden md:inline">PDF</span>
+                </button>
+                <button id="nav-exit-btn" onclick="exitEvent()" class="px-3 py-1.5 sm:px-4 rounded-lg text-xs sm:text-sm font-bold text-red-600 hover:bg-red-50 transition-all flex items-center gap-2 border border-red-100">
+                    <i data-lucide="log-out" class="w-4 h-4"></i>
+                    Keluar
+                </button>
+                <div id="admin-badge" class="hidden px-3 py-1.5 text-xs font-bold text-white bg-slate-800 rounded-lg flex items-center gap-2">
+                    <i data-lucide="shield-check" class="w-3.5 h-3.5 main-text-primary"></i>
+                    ADMIN
+                    <button onclick="logoutAdmin()" class="ml-1 hover:text-red-400 transition-colors">
+                        <i data-lucide="log-out" class="w-3.5 h-3.5"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <div class="flex flex-1 relative overflow-hidden">
+        <!-- Sidebar -->
+        <aside id="sidebar" class="fixed inset-y-0 left-0 z-50 w-72 bg-white border-r transform -translate-x-full lg:translate-x-0 lg:static sidebar-transition flex flex-col">
+            <div class="p-4 border-b flex justify-between items-center bg-gray-50">
+                <h3 class="font-bold text-gray-700">Daftar Sesi Q&A</h3>
+                <button onclick="toggleSidebar()" class="lg:hidden p-1 hover:bg-gray-200 rounded">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+            
+            <!-- Admin Only: Create Session -->
+            <div id="admin-create-container" class="p-4 hidden space-y-3">
+                <button onclick="createNewSession()" class="w-full bg-slate-900 hover:bg-black text-white py-3.5 rounded-2xl font-bold transition-all flex items-center justify-center gap-3 shadow-lg hover:shadow-xl active:scale-95 border-b-4 border-slate-700">
+                    <i data-lucide="plus-circle" class="w-5 h-5 main-text-primary"></i>
+                    Create Q&A Session
+                </button>
+            </div>
+            
+            <!-- Participant Info when not Admin -->
+            <div id="participant-info" class="p-4 text-center">
+                <p class="text-xs text-gray-400">Pilih sesi yang tersedia di bawah untuk bergabung.</p>
+            </div>
+
+            <div id="sessions-list" class="flex-1 overflow-y-auto px-2 space-y-1">
+                <!-- Sessions list will be injected here -->
+            </div>
+            
+            <div class="p-4 border-t text-center">
+                <p class="text-[10px] text-gray-400 uppercase font-bold tracking-widest leading-tight">Sesi otomatis direset<br>setelah 24 jam</p>
+            </div>
+        </aside>
+
+        <!-- Overlay -->
+        <div id="sidebar-overlay" onclick="toggleSidebar()" class="fixed inset-0 bg-black/50 z-40 hidden lg:hidden"></div>
+
+        <!-- Main Content -->
+        <main id="main-content" class="flex-1 overflow-y-auto px-4 py-8 hidden">
+            <div class="max-w-4xl mx-auto">
+                <!-- Participant View -->
+                <div id="participant-view" class="space-y-8">
+                    <div class="bg-white rounded-2xl shadow-sm border p-6">
+                        <div class="flex justify-between items-center mb-4">
+                            <h2 class="text-lg font-semibold flex items-center gap-2">
+                                <i data-lucide="plus-circle" class="w-5 h-5 main-text-primary"></i>
+                                Ajukan Pertanyaan
+                            </h2>
+                            <button onclick="downloadQuestionsPDF()" class="p-2 text-slate-400 hover:main-text-primary transition-colors" title="Download Q&A">
+                                <i data-lucide="file-text" class="w-5 h-5"></i>
+                            </button>
+                        </div>
+                        <div class="space-y-4">
+                            <textarea id="question-input" rows="3" class="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:main-border-primary outline-none transition-all resize-none" placeholder="Apa yang ingin Anda tanyakan?"></textarea>
+                            <div class="flex justify-between items-center">
+                                <span class="text-xs text-gray-400">Tanya secara anonim</span>
+                                <button onclick="submitQuestion()" class="main-primary hover:opacity-90 text-white px-8 py-3 rounded-2xl font-bold shadow-lg shadow-slate-200 transition-all active:scale-95 flex items-center gap-3">
+                                    Kirim Pertanyaan
+                                    <i data-lucide="send" class="w-5 h-5"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="flex items-center justify-between">
+                        <h3 class="font-bold text-gray-800 text-lg flex items-center gap-2">
+                            <i data-lucide="list" class="w-5 h-5"></i>
+                            Pertanyaan Populer
+                        </h3>
+                        <div class="text-sm text-gray-500" id="question-count">0 Pertanyaan</div>
+                    </div>
+
+                    <div id="questions-list" class="space-y-4"></div>
+                </div>
+
+                <!-- Presenter View -->
+                <div id="presenter-view" class="hidden space-y-8">
+                    <div class="main-primary rounded-2xl p-8 text-white shadow-lg relative overflow-hidden">
+                        <div class="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                            <div>
+                                <h1 class="text-3xl font-bold mb-2">Mode Presentasi</h1>
+                                <p class="opacity-90">Menampilkan pertanyaan paling populer secara real-time.</p>
+                            </div>
+                            <button onclick="downloadQuestionsPDF()" class="bg-white/20 hover:bg-white/30 backdrop-blur-md text-white px-6 py-3 rounded-xl font-bold transition-all flex items-center gap-2 border border-white/20 active:scale-95">
+                                <i data-lucide="file-text" class="w-5 h-5"></i>
+                                Download PDF
+                            </button>
+                        </div>
+                        <i data-lucide="presentation" class="absolute -right-8 -bottom-8 w-48 h-48 opacity-10"></i>
+                    </div>
+                    <div id="presenter-questions" class="grid grid-cols-1 gap-6"></div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Thank You Page -->
+    <div id="thank-you-page" class="fixed inset-0 z-[120] flex hidden items-center justify-center p-8 overflow-hidden">
+        <!-- Background Image with Filters -->
+        <div class="absolute inset-0 z-0">
+            <img id="thank-you-bg" src="https://images.unsplash.com/photo-1542314831-068cd1dbfeeb?q=80&w=2070&auto=format&fit=crop" 
+                 class="w-full h-full object-cover grayscale blur-[8px] brightness-[0.4] scale-105" alt="Background">
+            <div class="absolute inset-0 bg-gradient-to-b from-black/60 via-black/40 to-black/80"></div>
+        </div>
+
+        <div class="relative z-10 max-w-2xl w-full text-center space-y-12">
+            <div class="flex flex-col items-center">
+                <div class="bg-white/10 backdrop-blur-md p-8 rounded-full mb-8 animate-bounce border border-white/20">
+                    <i data-lucide="heart" class="main-text-primary w-20 h-20 fill-current"></i>
+                </div>
+                <h1 class="text-4xl lg:text-6xl font-black text-white leading-tight">
+                    Thank you for participating in the event at <span class="main-text-primary">Aston Pekalongan</span>
+                </h1>
+                <p class="text-slate-300 text-xl mt-6">Kontribusi dan pertanyaan Anda sangat berarti bagi kami.</p>
+            </div>
+            
+            <div class="pt-8 border-t border-white/10">
+                <button onclick="window.location.reload()" class="bg-white hover:bg-slate-100 text-slate-900 px-10 py-4 rounded-2xl font-bold transition-all flex items-center gap-3 mx-auto shadow-2xl active:scale-95">
+                    <i data-lucide="home" class="w-5 h-5 main-text-primary"></i>
+                    Kembali ke Beranda
+                </button>
+            </div>
+
+            <div class="text-slate-400 text-sm font-medium uppercase tracking-widest">
+                © 2026 Aston Pekalongan - Q&A System
+            </div>
+        </div>
+    </div>
+
+    <!-- QR Code Modal -->
+    <div id="qr-modal" class="fixed inset-0 bg-black/50 z-[60] hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl p-8 max-w-sm w-full text-center space-y-6 shadow-2xl">
+            <div class="flex justify-between items-center">
+                <h3 class="text-xl font-bold text-gray-800">Scan untuk Join</h3>
+                <button onclick="hideQRCode()" class="text-gray-400 hover:text-gray-600 p-1">
+                    <i data-lucide="x" class="w-6 h-6"></i>
+                </button>
+            </div>
+            <div class="flex justify-center p-4 bg-white rounded-2xl border-2 border-dashed main-border-primary border-opacity-20 shadow-inner">
+                <div id="qrcode"></div>
+            </div>
+            <div class="space-y-2">
+                <p id="qr-session-name" class="font-bold main-text-primary text-lg"></p>
+                <div class="inline-block px-3 py-1 bg-slate-100 rounded-full text-[10px] font-black text-slate-500 tracking-widest uppercase">
+                    ID: <span id="qr-session-id-display"></span>
+                </div>
+                <p class="text-sm text-gray-500">Arahkan kamera HP ke QR Code untuk masuk ke sesi ini.</p>
+            </div>
+            <div class="pt-4 border-t border-gray-100 flex flex-col gap-3">
+                <button onclick="copySessionLink()" class="w-full bg-slate-100 hover:bg-slate-200 text-slate-700 py-2 rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2">
+                    <i data-lucide="link" class="w-4 h-4"></i>
+                    Salin Link Sesi
+                </button>
+                <button onclick="downloadQRCode()" class="w-full main-primary hover:opacity-90 text-white py-2 rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2">
+                    <i data-lucide="download" class="w-4 h-4"></i>
+                    Unduh Barcode Sesi
+                </button>
+                <div>
+                    <p class="text-[10px] text-gray-400 uppercase tracking-widest font-bold mb-1">Sesi Ini Berakhir Dalam</p>
+                    <div id="session-timer" class="text-xl font-mono font-black text-gray-800 tracking-wider">--:--:--</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Emoji Picker Modal -->
+    <div id="emoji-modal" class="fixed inset-0 bg-black/50 z-[130] hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl p-6 max-w-sm w-full space-y-4 shadow-2xl">
+            <div class="flex justify-between items-center">
+                <h3 class="text-xl font-bold text-gray-800">Pilih Reaksi</h3>
+                <button onclick="hideEmojiModal()" class="text-gray-400 hover:text-gray-600 p-1">
+                    <i data-lucide="x" class="w-6 h-6"></i>
+                </button>
+            </div>
+            <div class="grid grid-cols-4 gap-3">
+                <button onclick="selectEmoji('👍')" class="text-2xl p-3 bg-slate-50 hover:main-bg-light rounded-2xl border border-slate-100 transition-all hover:scale-110 active:scale-95">👍</button>
+                <button onclick="selectEmoji('❤️')" class="text-2xl p-3 bg-slate-50 hover:main-bg-light rounded-2xl border border-slate-100 transition-all hover:scale-110 active:scale-95">❤️</button>
+                <button onclick="selectEmoji('🔥')" class="text-2xl p-3 bg-slate-50 hover:main-bg-light rounded-2xl border border-slate-100 transition-all hover:scale-110 active:scale-95">🔥</button>
+                <button onclick="selectEmoji('👏')" class="text-2xl p-3 bg-slate-50 hover:main-bg-light rounded-2xl border border-slate-100 transition-all hover:scale-110 active:scale-95">👏</button>
+                <button onclick="selectEmoji('😮')" class="text-2xl p-3 bg-slate-50 hover:main-bg-light rounded-2xl border border-slate-100 transition-all hover:scale-110 active:scale-95">😮</button>
+                <button onclick="selectEmoji('😂')" class="text-2xl p-3 bg-slate-50 hover:main-bg-light rounded-2xl border border-slate-100 transition-all hover:scale-110 active:scale-95">😂</button>
+                <button onclick="selectEmoji('💯')" class="text-2xl p-3 bg-slate-50 hover:main-bg-light rounded-2xl border border-slate-100 transition-all hover:scale-110 active:scale-95">💯</button>
+                <button onclick="selectEmoji('✨')" class="text-2xl p-3 bg-slate-50 hover:main-bg-light rounded-2xl border border-slate-100 transition-all hover:scale-110 active:scale-95">✨</button>
+            </div>
+            <div class="pt-4 border-t border-gray-100 space-y-3">
+                <p class="text-xs font-bold text-gray-400 uppercase tracking-widest">Atau ketik sendiri</p>
+                <div class="flex gap-2">
+                    <input type="text" id="custom-emoji-input" onkeypress="if(event.key === 'Enter') submitCustomEmoji()" class="flex-1 px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:main-ring-primary text-sm" placeholder="Contoh: 🚀 atau Mantap!">
+                    <button onclick="submitCustomEmoji()" class="main-primary text-white px-4 py-2 rounded-xl font-bold text-sm hover:opacity-90 transition-all">Kirim</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Module Modal -->
+    <div id="add-module-modal" class="fixed inset-0 z-[200] bg-slate-900/60 backdrop-blur-sm flex hidden items-center justify-center p-6">
+        <div class="bg-white w-full max-w-md rounded-[2.5rem] p-10 shadow-2xl space-y-8">
+            <div class="flex justify-between items-center">
+                <div class="flex items-center gap-3">
+                    <div class="bg-blue-600 p-2.5 rounded-xl shadow-lg shadow-blue-200">
+                        <i data-lucide="plus" class="text-white w-6 h-6"></i>
+                    </div>
+                    <h3 class="text-2xl font-black text-slate-900 tracking-tight">Tambah Modul</h3>
+                </div>
+                <button onclick="hideAddModuleModal()" class="p-2 hover:bg-slate-100 rounded-full transition-colors">
+                    <i data-lucide="x" class="w-6 h-6 text-slate-400"></i>
+                </button>
+            </div>
+            
+            <div class="space-y-5">
+                <div class="space-y-2">
+                    <label class="text-sm font-bold text-slate-700 ml-1">Nama Aplikasi</label>
+                    <input type="text" id="new-module-name" class="w-full px-5 py-4 bg-slate-50 border-2 border-transparent rounded-2xl focus:border-blue-600 outline-none transition-all font-medium" placeholder="Contoh: Q&A Event Baru">
+                </div>
+                <div class="space-y-2">
+                    <label class="text-sm font-bold text-slate-700 ml-1">Deskripsi</label>
+                    <textarea id="new-module-desc" class="w-full px-5 py-4 bg-slate-50 border-2 border-transparent rounded-2xl focus:border-blue-600 outline-none transition-all font-medium h-24 resize-none" placeholder="Deskripsi singkat aplikasi..."></textarea>
+                </div>
+                <div class="space-y-2">
+                    <label class="text-sm font-bold text-slate-700 ml-1">Folder Lokasi (Path)</label>
+                    <div class="flex gap-2">
+                        <div class="relative flex-1">
+                            <i data-lucide="folder" class="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 w-5 h-5"></i>
+                            <input type="text" id="new-module-folder" list="folder-suggestions" class="w-full pl-12 pr-5 py-4 bg-slate-50 border-2 border-transparent rounded-2xl focus:border-blue-600 outline-none transition-all font-medium" placeholder="Contoh: /modules/event_a">
+                            <datalist id="folder-suggestions">
+                                <option value="/modules/qa_system">
+                            </datalist>
+                        </div>
+                        <button onclick="document.getElementById('folder-picker').click()" class="px-6 py-4 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-2xl font-bold transition-all flex items-center gap-2 shrink-0" title="Cari folder di komputer Anda">
+                            <i data-lucide="search" class="w-5 h-5"></i>
+                            Cari
+                        </button>
+                        <input type="file" id="folder-picker" webkitdirectory directory multiple class="hidden" onchange="handleFolderSelect(event)">
+                    </div>
+                    <p class="text-[10px] text-slate-400 mt-1 font-medium pl-1">Pastikan folder tersebut sudah memiliki file index.html</p>
+                </div>
+            </div>
+
+            <button onclick="confirmAddModule()" class="w-full bg-blue-600 hover:bg-blue-700 text-white py-5 rounded-2xl font-black text-xl shadow-xl shadow-blue-200 transition-all active:scale-[0.98] flex items-center justify-center gap-3">
+                Simpan Modul
+                <i data-lucide="check-circle" class="w-6 h-6"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- Create User Modal -->(Manajemen User) -->
+    <div id="create-user-modal" class="fixed inset-0 bg-black/50 z-[150] hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl p-8 w-full max-w-2xl shadow-2xl max-h-[90vh] flex flex-col">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-2xl font-black text-slate-900">Manajemen User</h2>
+                <button onclick="hideCreateUserModal()" class="p-2 hover:bg-slate-100 rounded-full transition-all">
+                    <i data-lucide="x" class="w-6 h-6 text-slate-400"></i>
+                </button>
+            </div>
+
+            <!-- Create New User Form -->
+            <div class="bg-slate-50 p-6 rounded-2xl mb-6">
+                <h3 class="font-bold text-slate-700 mb-4 flex items-center gap-2">
+                    <i data-lucide="user-plus" class="w-4 h-4"></i>
+                    Tambah User Baru
+                </h3>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <input type="text" id="new-user-username" placeholder="Username" class="bg-white border-2 border-slate-100 rounded-xl px-4 py-2 text-sm focus:main-border-primary outline-none">
+                    <input type="password" id="new-user-password" placeholder="Password" class="bg-white border-2 border-slate-100 rounded-xl px-4 py-2 text-sm focus:main-border-primary outline-none">
+                    <select id="new-user-role" class="bg-white border-2 border-slate-100 rounded-xl px-4 py-2 text-sm focus:main-border-primary outline-none">
+                        <option value="admin">Admin (Bisa Semuanya)</option>
+                        <option value="client">Client (Hanya Viewer)</option>
+                    </select>
+                </div>
+                <button onclick="confirmCreateUser()" class="w-full mt-4 main-primary text-white py-3 rounded-xl font-bold shadow-md hover:shadow-lg transition-all active:scale-95 flex items-center justify-center gap-2">
+                    <i data-lucide="plus" class="w-4 h-4"></i>
+                    Simpan User
+                </button>
+            </div>
+
+            <!-- User List -->
+            <div class="flex-1 overflow-y-auto custom-scrollbar">
+                <table class="w-full text-left">
+                    <thead class="sticky top-0 bg-white">
+                        <tr class="text-[10px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100">
+                            <th class="pb-3 px-2">Username</th>
+                            <th class="pb-3 px-2">Role</th>
+                            <th class="pb-3 px-2 text-right">Aksi</th>
+                        </tr>
+                    </thead>
+                    <tbody id="user-list-table-body" class="divide-y divide-slate-50">
+                        <!-- Users will be listed here -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Password Modal -->
+    <div id="edit-password-modal" class="fixed inset-0 bg-black/50 z-[160] hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl p-8 w-full max-w-sm shadow-2xl">
+            <h2 class="text-xl font-black text-slate-900 mb-4">Edit Password</h2>
+            <p class="text-sm text-slate-500 mb-6">Mengubah password untuk user: <span id="edit-password-username" class="font-bold text-slate-700"></span></p>
+            <div class="space-y-4">
+                <input type="password" id="edit-user-new-password" placeholder="Password Baru" class="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl px-5 py-4 focus:main-border-primary outline-none transition-all font-medium">
+                <div class="flex gap-3 pt-2">
+                    <button onclick="hideEditPasswordModal()" class="flex-1 px-4 py-3 rounded-2xl font-bold text-slate-500 hover:bg-slate-50 transition-all">Batal</button>
+                    <button onclick="confirmEditPassword()" class="flex-1 main-primary text-white px-4 py-3 rounded-2xl font-bold shadow-lg hover:shadow-xl transition-all active:scale-95">Simpan</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Module Settings Modal -->
+    <div id="module-settings-modal" class="fixed inset-0 bg-black/50 z-[150] hidden flex items-center justify-center p-4 backdrop-blur-sm">
+        <div class="bg-white rounded-[2.5rem] p-8 max-w-md w-full space-y-6 shadow-2xl animate-in fade-in zoom-in duration-200">
+            <div class="flex justify-between items-center">
+                <div class="flex items-center gap-3">
+                    <div class="bg-blue-50 p-2.5 rounded-xl">
+                        <i data-lucide="palette" class="text-blue-600 w-6 h-6"></i>
+                    </div>
+                    <h3 class="text-2xl font-black text-slate-900">Kustomisasi Modul</h3>
+                </div>
+                <button onclick="closeModuleSettings()" class="text-slate-400 hover:text-slate-600 p-2 hover:bg-slate-100 rounded-full transition-all">
+                    <i data-lucide="x" class="w-6 h-6"></i>
+                </button>
+            </div>
+            
+            <div class="space-y-5">
+                <div class="space-y-2">
+                    <label class="text-sm font-bold text-slate-700 ml-1">Warna Utama (Primary)</label>
+                    <div class="flex gap-3">
+                        <input type="color" id="config-primary-color" class="h-12 w-20 rounded-xl border-2 border-slate-100 cursor-pointer" value="#ea580c">
+                        <input type="text" id="config-primary-text" class="flex-1 px-4 py-3 bg-slate-50 border-2 border-transparent rounded-xl focus:border-blue-500 outline-none transition-all font-mono" placeholder="#EA580C">
+                    </div>
+                </div>
+
+                <div class="space-y-2">
+                    <label class="text-sm font-bold text-slate-700 ml-1">Foto Background / Logo</label>
+                    <div class="flex gap-3">
+                        <div class="relative flex-1">
+                            <i data-lucide="image" class="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 w-5 h-5"></i>
+                            <input type="text" id="config-bg-image" class="w-full pl-12 pr-4 py-4 bg-slate-50 border-2 border-transparent rounded-xl focus:border-blue-500 outline-none transition-all font-medium text-sm" placeholder="URL Gambar atau klik Upload">
+                        </div>
+                        <input type="file" id="config-bg-upload" class="hidden" accept="image/*" onchange="handleImageUpload(event)">
+                        <button onclick="document.getElementById('config-bg-upload').click()" class="px-6 py-4 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl font-bold transition-all flex items-center gap-2 shrink-0">
+                            <i data-lucide="upload" class="w-5 h-5"></i>
+                            Upload
+                        </button>
+                    </div>
+                    <p class="text-[10px] text-slate-400 font-medium px-1 italic">*Gunakan URL gambar publik atau upload file dari folder</p>
+                </div>
+            </div>
+
+            <div class="pt-4 flex gap-3">
+                <button onclick="closeModuleSettings()" class="flex-1 px-6 py-4 rounded-2xl font-bold text-slate-400 hover:bg-slate-50 transition-all">Batal</button>
+                <button onclick="saveModuleSettings()" class="flex-[2] bg-blue-600 hover:bg-blue-700 text-white py-4 rounded-2xl font-black text-lg shadow-xl shadow-blue-100 transition-all active:scale-[0.98] flex items-center justify-center gap-2">
+                    <i data-lucide="save" class="w-5 h-5"></i>
+                    Simpan Perubahan
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Create Session Modal -->
+    <div id="create-session-modal" class="fixed inset-0 bg-black/50 z-[60] hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl p-6 max-w-sm w-full space-y-4 shadow-2xl">
+            <div class="flex justify-between items-center">
+                <h3 class="text-lg font-bold">Buat Sesi Baru</h3>
+                <button onclick="hideCreateSessionModal()" class="text-gray-400 hover:text-gray-600">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+            <p class="text-sm text-gray-500">Masukkan nama untuk sesi Q&A baru Anda.</p>
+            <div class="space-y-3">
+                <input type="text" id="new-session-name" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:main-ring-primary focus:border-transparent outline-none transition-all font-medium" placeholder="Contoh: Sesi Tanya Jawab Manager">
+                <button onclick="confirmCreateSession()" class="w-full main-primary hover:opacity-90 text-white py-3 rounded-xl font-bold shadow-lg shadow-slate-200 transition-all active:scale-95">
+                    Buat Sesi Sekarang
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- CONSTANTS ---
+        const API_URL = 'https://script.google.com/macros/s/AKfycbzYZ3767U3Exs3DXo8ksEe3qPbHjshxqyd1PKPTIn37WJfZJCZ_DB8LVnH-OH30jECFBg/exec';
+        const SESSION_DURATION = 24 * 60 * 60 * 1000;
+        const DEFAULT_SESSION_ID = 'default-session';
+        
+        // Default users if none exist
+        const DEFAULT_USERS = {
+            'administrator': { username: 'administrator', password: 'admin123', role: 'administrator' },
+            'admin': { username: 'admin', password: 'admin123', role: 'admin' }
+        };
+
+        // --- STATE ---
+        let sessions = JSON.parse(localStorage.getItem('qa_sessions')) || {};
+        let users = JSON.parse(localStorage.getItem('qa_users')) || DEFAULT_USERS;
+        
+        // Default modules
+        const DEFAULT_MODULES = [
+            {
+                id: 'qa-system',
+                name: 'TanyaAja Q&A',
+                description: 'Sistem internal bawaan aplikasi utama.',
+                type: 'internal',
+                folder: 'Internal',
+                icon: 'message-square',
+                color: 'main-primary',
+                textColor: 'main-text-primary',
+                bgLight: 'bg-slate-50'
+            },
+            {
+                id: 'qa-system-custom',
+                name: 'Custom Q&A',
+                description: 'Modul terpisah dengan tampilan kustom.',
+                type: 'external',
+                folder: '/modules/qa_system',
+                icon: 'layout-template',
+                color: 'bg-blue-600',
+                textColor: 'text-blue-600',
+                bgLight: 'bg-blue-50'
+            }
+        ];
+        let modules = JSON.parse(localStorage.getItem('qa_modules')) || DEFAULT_MODULES;
+        
+        // Pastikan Administrator Utama selalu ada (Migration)
+        if (!users['administrator'] || (users['administrator'].role !== 'administrator' && users['administrator'].role !== 'superadmin')) {
+            users['administrator'] = DEFAULT_USERS['administrator'];
+            localStorage.setItem('qa_users', JSON.stringify(users));
+        }
+        
+        let currentUser = JSON.parse(localStorage.getItem('currentUser')) || null;
+        
+        let currentSessionId = getSessionFromUrl() || DEFAULT_SESSION_ID;
+        let currentView = 'participant';
+        let isSuperAdmin = currentUser && (currentUser.role === 'administrator' || currentUser.role === 'superadmin');
+        let isAdmin = currentUser && (currentUser.role === 'admin' || currentUser.role === 'administrator' || currentUser.role === 'superadmin');
+        let isClient = currentUser && currentUser.role === 'client';
+
+    function showMasterDashboard() {
+        document.getElementById('master-dashboard').classList.remove('hidden');
+        document.getElementById('admin-auth-page').classList.add('hidden');
+        document.getElementById('landing-page').classList.add('hidden');
+        document.getElementById('main-nav').classList.add('hidden');
+        document.getElementById('sidebar').classList.add('hidden');
+        document.getElementById('sidebar-overlay').classList.add('hidden');
+        
+        // Update stats
+        const userCount = Object.keys(users).length;
+        document.getElementById('master-total-users').textContent = userCount;
+        
+        renderModules();
+        lucide.createIcons();
+    }
+
+    function renderModules() {
+        const container = document.getElementById('master-modules-container');
+        if (!container) return;
+
+        container.innerHTML = modules.map(m => `
+            <div class="group bg-white rounded-[2rem] border-2 border-slate-100 p-8 shadow-sm hover:border-blue-500 hover:shadow-xl hover:shadow-blue-100/50 transition-all cursor-pointer relative overflow-hidden" onclick="launchApp('${m.id}')">
+                <div class="absolute top-0 right-0 w-32 h-32 ${m.bgLight} rounded-bl-[5rem] -mr-10 -mt-10 group-hover:bg-blue-100 transition-colors"></div>
+                <div class="relative z-10 space-y-6">
+                    <div class="flex justify-between items-start">
+                        <div class="w-16 h-16 ${m.color} rounded-2xl flex items-center justify-center text-white shadow-lg">
+                            <i data-lucide="${m.icon}" class="w-8 h-8"></i>
+                        </div>
+                        <div class="flex gap-2">
+                            ${m.id === 'qa-system' ? `
+                                <button onclick="event.stopPropagation(); openModuleSettings('landing')" class="p-3 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl transition-all" title="Settings Halaman Depan">
+                                    <i data-lucide="home" class="w-5 h-5"></i>
+                                </button>
+                                <button onclick="event.stopPropagation(); openModuleSettings('login')" class="p-3 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl transition-all" title="Settings Halaman Login">
+                                    <i data-lucide="lock" class="w-5 h-5"></i>
+                                </button>
+                            ` : `
+                                <button onclick="event.stopPropagation(); openModuleSettings('${m.id}')" class="p-3 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl transition-all">
+                                    <i data-lucide="settings" class="w-5 h-5"></i>
+                                </button>
+                                ${m.type !== 'internal' && m.id !== 'qa-system-custom' ? `
+                                    <button onclick="event.stopPropagation(); deleteModule('${m.id}')" class="p-3 bg-red-50 hover:bg-red-100 text-red-500 rounded-xl transition-all">
+                                        <i data-lucide="trash-2" class="w-5 h-5"></i>
+                                    </button>
+                                ` : ''}
+                            `}
+                        </div>
+                    </div>
+                    <div>
+                        <h4 class="text-2xl font-black text-slate-900 group-hover:${m.textColor} transition-colors">${m.name}</h4>
+                        <p class="text-slate-500 font-medium mt-2 leading-relaxed">${m.description}</p>
+                    </div>
+                    <div class="pt-4 flex items-center justify-between">
+                        <span class="px-4 py-1.5 ${m.bgLight} ${m.textColor} text-xs font-black rounded-full uppercase tracking-widest">
+                            ${m.type === 'internal' ? 'Sistem Utama' : `Folder: ${m.folder}`}
+                        </span>
+                        <div class="w-10 h-10 bg-slate-900 rounded-xl flex items-center justify-center text-white group-hover:translate-x-1 transition-transform">
+                            <i data-lucide="${m.type === 'internal' ? 'arrow-right' : 'external-link'}" class="w-5 h-5"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `).join('') + `
+            <!-- Placeholder for New App -->
+            <div class="group bg-slate-50 border-2 border-dashed border-slate-200 rounded-[2rem] p-8 flex flex-col items-center justify-center text-center space-y-4 hover:bg-white hover:border-slate-300 transition-all cursor-pointer" onclick="showAddModuleModal()">
+                <div class="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center text-slate-400 group-hover:scale-110 transition-transform">
+                    <i data-lucide="plus" class="w-8 h-8"></i>
+                </div>
+                <div>
+                    <h4 class="text-xl font-black text-slate-400 uppercase tracking-tight">Tambah Modul</h4>
+                    <p class="text-slate-400 text-sm mt-1">Gunakan core logic untuk app baru</p>
+                </div>
+            </div>
+        `;
+        lucide.createIcons();
+    }
+
+    function launchApp(appId) {
+        const module = modules.find(m => m.id === appId);
+        if (!module) return;
+
+        if (module.id === 'qa-system') {
+            document.getElementById('master-dashboard').classList.add('hidden');
+            showMainApp();
+            updateAdminUI();
+        } else if (module.type === 'external') {
+            // For external modules, we open the index.html in their folder
+            // Pass the module ID so the app can have its own data space
+            const path = module.folder.startsWith('/') ? module.folder.substring(1) : module.folder;
+            window.open(`${path}/index.html?app_id=${module.id}`, '_blank');
+        }
+    }
+
+    function deleteModule(id) {
+         if (!confirm('Hapus modul ini? Data folder tidak akan terhapus secara fisik, hanya dari dashboard.')) return;
+         modules = modules.filter(m => m.id !== id);
+         localStorage.setItem('qa_modules', JSON.stringify(modules));
+         renderModules();
+     }
+
+     function showAddModuleModal() {
+         document.getElementById('add-module-modal').classList.remove('hidden');
+         lucide.createIcons();
+     }
+
+     function hideAddModuleModal() {
+         document.getElementById('add-module-modal').classList.add('hidden');
+         document.getElementById('new-module-name').value = '';
+         document.getElementById('new-module-desc').value = '';
+         document.getElementById('new-module-folder').value = '';
+     }
+
+     function handleFolderSelect(event) {
+         const files = event.target.files;
+         if (files.length > 0) {
+             // webkitRelativePath format is "foldername/filename.ext"
+             // We want to suggest the folder path
+             const fullPath = files[0].webkitRelativePath;
+             const folderName = fullPath.split('/')[0];
+             
+             // Check if it's likely a module folder
+             const suggestedPath = `/modules/${folderName}`;
+             document.getElementById('new-module-folder').value = suggestedPath;
+             
+             // If name is empty, suggest the folder name as app name
+             const nameInput = document.getElementById('new-module-name');
+             if (!nameInput.value.trim()) {
+                 nameInput.value = folderName.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+             }
+         }
+     }
+
+     function confirmAddModule() {
+         const name = document.getElementById('new-module-name').value.trim();
+         const desc = document.getElementById('new-module-desc').value.trim();
+         const folder = document.getElementById('new-module-folder').value.trim();
+
+         if (!name || !folder) return alert("Nama dan Folder harus diisi.");
+
+         const id = 'module-' + Date.now();
+         
+         const newModule = {
+             id: id,
+             name: name,
+             description: desc || 'Tidak ada deskripsi.',
+             type: 'external',
+             folder: folder,
+             icon: 'layout-template',
+             color: 'bg-slate-800',
+             textColor: 'text-slate-800',
+             bgLight: 'bg-slate-50'
+         };
+
+         modules.push(newModule);
+         localStorage.setItem('qa_modules', JSON.stringify(modules));
+         
+         hideAddModuleModal();
+         renderModules();
+         alert(`Modul "${name}" berhasil ditambahkan!`);
+     }
+
+    let currentConfigType = 'custom';
+
+    function handleImageUpload(event) {
+        const file = event.target.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                document.getElementById('config-bg-image').value = e.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+    }
+
+    function openModuleSettings(type) {
+        currentConfigType = type || 'custom';
+        const modal = document.getElementById('module-settings-modal');
+        let configKey = 'qa_module_config';
+        let defaultBg = 'https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?q=80&w=2070&auto=format&fit=crop';
+        
+        if (currentConfigType === 'landing') {
+            configKey = 'qa_landing_config';
+        } else if (currentConfigType === 'login') {
+            configKey = 'qa_login_config';
+            defaultBg = 'https://images.unsplash.com/photo-1497366216548-37526070297c?q=80&w=2069&auto=format&fit=crop';
+        } else if (currentConfigType === 'main') {
+            configKey = 'qa_main_config';
+        } else {
+            // Use specific config key for custom modules
+            configKey = `qa_${currentConfigType}_config`;
+        }
+
+        const config = JSON.parse(localStorage.getItem(configKey)) || {
+            primaryColor: (currentConfigType === 'landing' || currentConfigType === 'login' || currentConfigType === 'main') ? '#ea580c' : '#2563eb',
+            bgImage: defaultBg
+        };
+        
+        // Update Modal Title based on type
+        const modalTitle = document.querySelector('#module-settings-modal h3');
+        if (currentConfigType === 'landing') modalTitle.textContent = 'Kustomisasi Landing Page';
+        else if (currentConfigType === 'login') modalTitle.textContent = 'Kustomisasi Login Admin';
+        else if (currentConfigType === 'main') modalTitle.textContent = 'Kustomisasi Sistem Utama';
+        else modalTitle.textContent = 'Kustomisasi Modul Kustom';
+
+        document.getElementById('config-primary-color').value = config.primaryColor;
+        document.getElementById('config-primary-text').value = config.primaryColor;
+        document.getElementById('config-bg-image').value = config.bgImage;
+        
+        modal.classList.remove('hidden');
+        lucide.createIcons();
+
+        // Sync color picker and text
+        const colorPicker = document.getElementById('config-primary-color');
+        const colorText = document.getElementById('config-primary-text');
+        
+        colorPicker.oninput = (e) => colorText.value = e.target.value.toUpperCase();
+        colorText.oninput = (e) => {
+            if (/^#[0-9A-F]{6}$/i.test(e.target.value)) {
+                colorPicker.value = e.target.value;
+            }
+        };
+    }
+
+    function closeModuleSettings() {
+        document.getElementById('module-settings-modal').classList.add('hidden');
+    }
+
+    function saveModuleSettings() {
+        const primaryColor = document.getElementById('config-primary-color').value;
+        const bgImage = document.getElementById('config-bg-image').value.trim();
+        
+        // Calculate hover color (darken by 10%)
+        const r = parseInt(primaryColor.slice(1, 3), 16);
+        const g = parseInt(primaryColor.slice(3, 5), 16);
+        const b = parseInt(primaryColor.slice(5, 7), 16);
+        const primaryHover = `rgb(${Math.max(0, r-20)}, ${Math.max(0, g-20)}, ${Math.max(0, b-20)})`;
+
+        const config = {
+            primaryColor: primaryColor,
+            primaryHover: primaryHover,
+            logoUrl: (currentConfigType === 'landing' || currentConfigType === 'login' || currentConfigType === 'main') ? 'assets/img/logo.png' : '../../assets/img/logo.png',
+            bgImage: bgImage
+        };
+        
+        let configKey = 'qa_module_config';
+        if (currentConfigType === 'landing') configKey = 'qa_landing_config';
+        else if (currentConfigType === 'login') configKey = 'qa_login_config';
+        else if (currentConfigType === 'main') configKey = 'qa_main_config';
+
+        localStorage.setItem(configKey, JSON.stringify(config));
+        
+        if (currentConfigType === 'landing' || currentConfigType === 'main') {
+            applyLandingConfig();
+        }
+        if (currentConfigType === 'login' || currentConfigType === 'main') {
+            applyLoginConfig();
+        }
+        
+        alert('Pengaturan berhasil disimpan!');
+        closeModuleSettings();
+    }
+
+    function applyLandingConfig() {
+        const config = JSON.parse(localStorage.getItem('qa_landing_config')) || JSON.parse(localStorage.getItem('qa_main_config'));
+        if (config) {
+            document.documentElement.style.setProperty('--main-primary', config.primaryColor);
+            document.documentElement.style.setProperty('--main-hover', config.primaryHover);
+            document.documentElement.style.setProperty('--landing-bg', `url(${config.bgImage})`);
+        }
+    }
+
+    function applyLoginConfig() {
+        const config = JSON.parse(localStorage.getItem('qa_login_config')) || JSON.parse(localStorage.getItem('qa_main_config'));
+        if (config) {
+            document.documentElement.style.setProperty('--login-bg', `url(${config.bgImage})`);
+        }
+    }
+        let qrModalSessionId = null; // Track session ID for QR modal
+
+        // Ensure at least one session exists if none present
+        if (Object.keys(sessions).length === 0) {
+            sessions[DEFAULT_SESSION_ID] = {
+                id: DEFAULT_SESSION_ID,
+                name: 'Sesi Utama',
+                questions: [],
+                startTime: Date.now().toString()
+            };
+            saveSessions();
+        }
+
+        // --- NAVIGATION & PAGES ---
+        function showAdminAuthPage() {
+            document.getElementById('landing-page').classList.add('hidden');
+            document.getElementById('admin-auth-page').classList.remove('hidden');
+            lucide.createIcons();
+        }
+
+        function hideAdminAuthPage() {
+            document.getElementById('admin-auth-page').classList.add('hidden');
+            document.getElementById('landing-page').classList.remove('hidden');
+        }
+
+        function showLandingPage() {
+            document.getElementById('landing-page').classList.remove('hidden');
+            document.getElementById('admin-auth-page').classList.add('hidden');
+            document.getElementById('thank-you-page').classList.add('hidden');
+            document.getElementById('main-nav').classList.add('hidden');
+            document.getElementById('main-content').classList.add('hidden');
+            document.getElementById('sidebar').classList.add('-translate-x-full');
+            document.getElementById('sidebar-overlay').classList.add('hidden');
+            updateAdminUI(); 
+        }
+
+        function showMainApp() {
+            document.getElementById('landing-page').classList.add('hidden');
+            document.getElementById('admin-auth-page').classList.add('hidden');
+            document.getElementById('thank-you-page').classList.add('hidden');
+            document.getElementById('main-nav').classList.remove('hidden');
+            document.getElementById('main-content').classList.remove('hidden');
+            renderAll();
+        }
+
+        function exitEvent() {
+            if (confirm("Apakah Anda yakin ingin keluar dari sesi ini?")) {
+                document.getElementById('main-nav').classList.add('hidden');
+                document.getElementById('main-content').classList.add('hidden');
+                document.getElementById('thank-you-page').classList.remove('hidden');
+                window.location.hash = ''; // Clear session from URL
+                lucide.createIcons();
+            }
+        }
+
+        async function loginAdminFromPage() {
+            const user = document.getElementById('admin-page-username').value.trim();
+            const pass = document.getElementById('admin-page-password').value.trim();
+            
+            if (!user || !pass) return alert("Username dan Password harus diisi.");
+
+            const btn = document.querySelector('button[onclick="loginAdminFromPage()"]');
+            const originalText = btn.innerHTML;
+            btn.innerHTML = '<i class="animate-spin" data-lucide="loader-2"></i> Memproses...';
+            lucide.createIcons();
+            btn.disabled = true;
+
+            try {
+                const response = await fetch(API_URL, {
+                    method: 'POST',
+                    mode: 'no-cors', // Apps Script often requires no-cors for simple POST, but we need JSON response
+                    body: JSON.stringify({
+                        action: 'login_admin',
+                        username: user,
+                        password: pass
+                    })
+                });
+
+                // Apps Script 'no-cors' POST returns opaque response. 
+                // However, we can use a clever trick: use GET for login if POST is tricky, 
+                // OR use a standard fetch and handle the redirect.
+                // Better approach for Apps Script: Use GET for simple queries if possible, 
+                // or handle the fact that POST might not return JSON easily in some environments.
+                // Let's stick to a more robust fetch approach for GAS.
+                
+                const gasResponse = await fetch(`${API_URL}?action=login_admin&username=${encodeURIComponent(user)}&password=${encodeURIComponent(pass)}`);
+                const result = await gasResponse.json();
+
+                if (result.status === 'success') {
+                    currentUser = { username: user, role: result.role };
+                    isSuperAdmin = result.role === 'super_admin';
+                    isAdmin = true;
+                    localStorage.setItem('currentUser', JSON.stringify(currentUser));
+                    
+                    if (isSuperAdmin) {
+                        showMasterDashboard();
+                    } else {
+                        showMainApp();
+                        updateAdminUI();
+                    }
+                    document.getElementById('admin-page-username').value = '';
+                    document.getElementById('admin-page-password').value = '';
+                } else {
+                    alert(result.message || "Login Gagal!");
+                }
+            } catch (error) {
+                console.error("Login error:", error);
+                alert("Terjadi kesalahan koneksi ke server.");
+            } finally {
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+                lucide.createIcons();
+            }
+        }
+
+        function logoutAdmin() {
+            if (confirm("Logout dari akun ini?")) {
+                currentUser = null;
+                isSuperAdmin = false;
+                isAdmin = false;
+                isClient = false;
+                localStorage.removeItem('currentUser');
+                window.location.hash = '';
+                document.getElementById('master-dashboard').classList.add('hidden');
+                showLandingPage();
+                updateAdminUI();
+            }
+        }
+
+        async function joinSessionByCode() {
+            const code = document.getElementById('join-session-code').value.trim().toUpperCase();
+            if (!code) return;
+            
+            const btn = document.querySelector('button[onclick="joinSessionByCode()"]');
+            const originalText = btn.innerHTML;
+            btn.innerHTML = '<i class="animate-spin" data-lucide="loader-2"></i>';
+            lucide.createIcons();
+
+            try {
+                const response = await fetch(`${API_URL}?action=join_session&code=${code}`);
+                const result = await response.json();
+
+                if (result.status === 'success') {
+                    // Update local session data temporarily
+                    if (!sessions[code]) {
+                        sessions[code] = {
+                            id: code,
+                            shortCode: code,
+                            name: result.session_name,
+                            questions: [],
+                            startTime: Date.now().toString()
+                        };
+                    }
+                    currentSessionId = code;
+                    window.location.hash = code;
+                    document.getElementById('join-session-code').value = '';
+                    showMainApp();
+                } else {
+                    alert(result.message || "Sesi tidak ditemukan.");
+                }
+            } catch (error) {
+                console.error("Join error:", error);
+                alert("Gagal terhubung ke server.");
+            } finally {
+                btn.innerHTML = originalText;
+                lucide.createIcons();
+            }
+        }
+
+        function updateAdminUI() {
+            applyLandingConfig();
+            applyLoginConfig();
+            const landingPage = document.getElementById('landing-page');
+            const mainNav = document.getElementById('main-nav');
+            const mainContent = document.getElementById('main-content');
+            const badge = document.getElementById('admin-badge');
+            const createContainer = document.getElementById('admin-create-container');
+            const participantInfo = document.getElementById('participant-info');
+            const sidebarToggle = document.querySelector('button[onclick="toggleSidebar()"]');
+            const sidebar = document.getElementById('sidebar');
+            const navPdfBtn = document.getElementById('nav-download-pdf');
+            const navExitBtn = document.getElementById('nav-exit-btn');
+
+            // PDF Download & Exit Button Visibility
+            if (window.location.hash) {
+                if (navPdfBtn) navPdfBtn.classList.remove('hidden');
+                if (navExitBtn) navExitBtn.classList.remove('hidden');
+            } else {
+                if (navPdfBtn) navPdfBtn.classList.add('hidden');
+                if (navExitBtn) navExitBtn.classList.add('hidden');
+            }
+
+            // Page Visibility Logic
+            if (window.location.hash || isAdmin || isClient) {
+                landingPage.classList.add('hidden');
+                document.getElementById('admin-auth-page').classList.add('hidden');
+                document.getElementById('thank-you-page').classList.add('hidden');
+                mainNav.classList.remove('hidden');
+                mainContent.classList.remove('hidden');
+            } else {
+                landingPage.classList.remove('hidden');
+                document.getElementById('admin-auth-page').classList.add('hidden');
+                mainNav.classList.add('hidden');
+                mainContent.classList.add('hidden');
+            }
+
+            // Admin Tools Visibility
+            if (isAdmin || isClient) {
+                badge.classList.remove('hidden');
+                
+                let roleLabel = 'CLIENT';
+                let roleIcon = 'eye';
+                let roleColor = 'text-blue-400';
+                
+                if (isSuperAdmin) {
+                    roleLabel = 'ADMINISTRATOR';
+                    roleIcon = 'shield-check';
+                    roleColor = 'main-text-primary';
+                } else if (isAdmin) {
+                    roleLabel = 'ADMIN';
+                    roleIcon = 'user-check';
+                    roleColor = 'text-green-400';
+                }
+
+                badge.innerHTML = `
+                    <i data-lucide="${roleIcon}" class="w-3.5 h-3.5 ${roleColor}"></i>
+                    ${roleLabel}
+                    <div class="flex items-center gap-1.5 ml-1 pl-1.5 border-l border-slate-700">
+                        ${isSuperAdmin ? `
+                            <button onclick="showCreateUserModal()" class="hover:main-text-primary transition-colors" title="Create User">
+                                <i data-lucide="user-plus" class="w-3.5 h-3.5"></i>
+                            </button>
+                        ` : ''}
+                        <button onclick="logoutAdmin()" class="hover:text-red-400 transition-colors" title="Logout">
+                            <i data-lucide="log-out" class="w-3.5 h-3.5"></i>
+                        </button>
+                    </div>
+                `;
+                lucide.createIcons();
+                
+                // Admin can create sessions, client cannot
+                if (isAdmin) {
+                    createContainer.classList.remove('hidden');
+                    participantInfo.classList.add('hidden');
+                } else {
+                    createContainer.classList.add('hidden');
+                    participantInfo.classList.remove('hidden');
+                    participantInfo.innerHTML = '<p class="text-xs text-blue-500 font-bold uppercase tracking-wider">Mode Viewers (Client)</p>';
+                }
+                
+                if (sidebarToggle) sidebarToggle.classList.remove('hidden');
+                sidebar.classList.remove('hidden');
+            } else {
+                badge.classList.add('hidden');
+                createContainer.classList.add('hidden');
+                participantInfo.classList.remove('hidden');
+                participantInfo.innerHTML = '<p class="text-xs text-gray-400">Pilih sesi yang tersedia di bawah untuk bergabung.</p>';
+                if (sidebarToggle) sidebarToggle.classList.add('hidden');
+                sidebar.classList.add('hidden');
+            }
+        }
+
+        // --- SESSION FUNCTIONS ---
+        function getSessionFromUrl() { return window.location.hash.substring(1); }
+        function saveSessions() { localStorage.setItem('qa_sessions', JSON.stringify(sessions)); }
+        function getCurrentSession() { 
+            return sessions[currentSessionId] || sessions[DEFAULT_SESSION_ID] || Object.values(sessions)[0] || null; 
+        }
+
+        function checkSessions() {
+            const now = Date.now();
+            let changed = false;
+            Object.keys(sessions).forEach(id => {
+                const session = sessions[id];
+                // Hapus history (pertanyaan) jika sudah lebih dari 24 jam sejak sesi dimulai/reset terakhir
+                if ((now - parseInt(session.startTime)) > SESSION_DURATION) {
+                    session.questions = [];
+                    session.startTime = now.toString(); // Reset timer untuk 24 jam berikutnya
+                    changed = true;
+                }
+            });
+            if (changed) { 
+                saveSessions(); 
+                if (typeof renderAll === 'function') renderAll(); 
+            }
+        }
+
+        function showCreateUserModal() {
+            if (!isSuperAdmin) return alert("Hanya Administrator Utama yang bisa mengelola user.");
+            document.getElementById('create-user-modal').classList.remove('hidden');
+            renderUserList();
+            lucide.createIcons();
+        }
+
+        function hideCreateUserModal() {
+            document.getElementById('create-user-modal').classList.add('hidden');
+            document.getElementById('new-user-username').value = '';
+            document.getElementById('new-user-password').value = '';
+        }
+
+        function renderUserList() {
+            const tbody = document.getElementById('user-list-table-body');
+            tbody.innerHTML = Object.values(users).map(u => `
+                <tr class="hover:bg-slate-50 transition-colors">
+                    <td class="py-4 px-2">
+                        <div class="flex items-center gap-2">
+                            <div class="w-8 h-8 rounded-full main-primary flex items-center justify-center text-white text-xs font-bold">
+                                ${u.username.charAt(0).toUpperCase()}
+                            </div>
+                            <span class="font-medium text-slate-700">${u.username}</span>
+                        </div>
+                    </td>
+                    <td class="py-4 px-2">
+                        <span class="px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider ${
+                            u.role === 'administrator' || u.role === 'superadmin' ? 'bg-red-100 text-red-600' : 
+                            (u.role === 'admin' ? 'bg-blue-100 text-blue-600' : 'bg-slate-100 text-slate-600')
+                        }">
+                            ${u.role}
+                        </span>
+                    </td>
+                    <td class="py-4 px-2 text-right">
+                        <div class="flex items-center justify-end gap-1">
+                            <button onclick="showEditPasswordModal('${u.username}')" class="p-2 text-slate-300 hover:main-text-primary transition-colors" title="Edit Password">
+                                <i data-lucide="key-round" class="w-4 h-4"></i>
+                            </button>
+                            ${u.username !== 'administrator' ? `
+                                <button onclick="deleteUser('${u.username}')" class="p-2 text-slate-300 hover:text-red-500 transition-colors" title="Hapus User">
+                                    <i data-lucide="trash-2" class="w-4 h-4"></i>
+                                </button>
+                            ` : '<span class="text-[10px] text-slate-300 font-bold italic pr-2">System</span>'}
+                        </div>
+                    </td>
+                </tr>
+            `).join('');
+            lucide.createIcons();
+        }
+
+        function confirmCreateUser() {
+            if (!isSuperAdmin) return alert("Akses ditolak.");
+            const user = document.getElementById('new-user-username').value.trim();
+            const pass = document.getElementById('new-user-password').value.trim();
+            const role = document.getElementById('new-user-role').value;
+
+            if (!user || !pass) return alert("Username dan Password harus diisi.");
+            if (users[user]) return alert("Username sudah digunakan.");
+
+            users[user] = { username: user, password: pass, role: role };
+            localStorage.setItem('qa_users', JSON.stringify(users));
+            
+            alert(`User ${user} berhasil dibuat sebagai ${role}.`);
+            
+            // Reset inputs
+            document.getElementById('new-user-username').value = '';
+            document.getElementById('new-user-password').value = '';
+            
+            renderUserList();
+        }
+
+        function deleteUser(username) {
+            if (!isSuperAdmin) return;
+            if (username === 'administrator') return alert('Tidak bisa menghapus Super Admin!');
+            if (!confirm(`Hapus user "${username}"?`)) return;
+
+            delete users[username];
+            localStorage.setItem('qa_users', JSON.stringify(users));
+            renderUserList();
+        }
+
+        let editingUsername = null;
+        function showEditPasswordModal(username) {
+            editingUsername = username;
+            document.getElementById('edit-password-username').textContent = username;
+            document.getElementById('edit-password-modal').classList.remove('hidden');
+            document.getElementById('edit-user-new-password').focus();
+        }
+
+        function hideEditPasswordModal() {
+            editingUsername = null;
+            document.getElementById('edit-password-modal').classList.add('hidden');
+            document.getElementById('edit-user-new-password').value = '';
+        }
+
+        function confirmEditPassword() {
+            const newPass = document.getElementById('edit-user-new-password').value.trim();
+            if (!newPass) return alert('Password baru tidak boleh kosong!');
+            
+            if (users[editingUsername]) {
+                users[editingUsername].password = newPass;
+                localStorage.setItem('qa_users', JSON.stringify(users));
+                
+                // Jika user yang diedit adalah user yang sedang login, perbarui currentUser
+                if (currentUser && currentUser.username === editingUsername) {
+                    currentUser.password = newPass;
+                    localStorage.setItem('currentUser', JSON.stringify(currentUser));
+                }
+                
+                alert(`Password untuk "${editingUsername}" berhasil diperbarui!`);
+                hideEditPasswordModal();
+                renderUserList();
+            }
+        }
+
+        function createNewSession() {
+            if (!isAdmin) return alert("Hanya admin yang bisa membuat sesi.");
+            const input = document.getElementById('new-session-name');
+            input.value = `Sesi ${Object.keys(sessions).length + 1}`;
+            document.getElementById('create-session-modal').classList.remove('hidden');
+            input.focus();
+            input.select();
+        }
+
+        function hideCreateSessionModal() {
+            document.getElementById('create-session-modal').classList.add('hidden');
+        }
+
+        async function confirmCreateSession() {
+            const input = document.getElementById('new-session-name');
+            const name = input.value.trim();
+            if (!name) return alert("Nama sesi tidak boleh kosong.");
+
+            const code = Math.random().toString(36).substring(2, 8).toUpperCase();
+            
+            try {
+                const response = await fetch(API_URL, {
+                    method: 'POST',
+                    mode: 'no-cors',
+                    body: JSON.stringify({
+                        action: 'create_session',
+                        code: code,
+                        name: name
+                    })
+                });
+
+                // Apps Script no-cors POST workaround: we assume success if no error thrown
+                // or we can use GET for creation too if we want immediate confirmation
+                
+                // Fallback local update
+                sessions[code] = {
+                    id: code,
+                    shortCode: code,
+                    name: name,
+                    questions: [],
+                    startTime: Date.now().toString()
+                };
+                saveSessions();
+                
+                currentSessionId = code;
+                window.location.hash = code;
+                
+                hideCreateSessionModal();
+                if (window.innerWidth < 1024) toggleSidebar();
+                
+                setTimeout(() => {
+                    showQRCode(code);
+                    renderAll();
+                }, 100);
+
+                addLog(`Sesi "${name}" berhasil dibuat dengan kode: ${code}`, 'success');
+            } catch (error) {
+                console.error("Create session error:", error);
+                alert("Gagal membuat sesi di server.");
+            }
+        }
+
+        function switchSession(id) {
+            window.location.hash = id;
+            if (window.innerWidth < 1024) toggleSidebar();
+        }
+
+        function deleteSession(id, event) {
+            event.stopPropagation();
+            if (!isAdmin && !isSuperAdmin) return alert("Hanya Administrator yang dapat menghapus sesi.");
+            if (!confirm("Hapus sesi ini beserta semua pertanyaannya?")) return;
+            
+            delete sessions[id];
+            saveSessions();
+            
+            const remainingIds = Object.keys(sessions);
+            if (currentSessionId === id) {
+                if (remainingIds.length > 0) {
+                    window.location.hash = remainingIds[0];
+                } else {
+                    window.location.hash = ''; // Back to landing
+                    updateAdminUI();
+                }
+            } else {
+                renderSessionsList();
+            }
+        }
+
+        function deleteQuestion(qId) {
+            if (!isAdmin) return;
+            if (!confirm("Hapus pertanyaan ini?")) return;
+            const session = getCurrentSession();
+            if (!session) return;
+            session.questions = session.questions.filter(q => q.id !== qId);
+            saveSessions();
+            renderQuestions();
+        }
+
+        // --- UI RENDER FUNCTIONS ---
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            const overlay = document.getElementById('sidebar-overlay');
+            const isHidden = sidebar.classList.contains('-translate-x-full');
+            if (isHidden) { sidebar.classList.remove('-translate-x-full'); overlay.classList.remove('hidden'); }
+            else { sidebar.classList.add('-translate-x-full'); overlay.classList.add('hidden'); }
+        }
+
+        function switchView(view) {
+            currentView = view;
+            const pView = document.getElementById('participant-view');
+            const presView = document.getElementById('presenter-view');
+            const btnP = document.getElementById('btn-participant');
+            const btnPres = document.getElementById('btn-presenter');
+
+            if (view === 'participant') {
+                pView.classList.remove('hidden'); presView.classList.add('hidden');
+                btnP.classList.add('bg-white', 'shadow-sm', 'main-text-primary'); btnP.classList.remove('text-gray-600');
+                btnPres.classList.remove('bg-white', 'shadow-sm', 'main-text-primary'); btnPres.classList.add('text-gray-600');
+            } else {
+                pView.classList.add('hidden'); presView.classList.remove('hidden');
+                btnPres.classList.add('bg-white', 'shadow-sm', 'main-text-primary'); btnPres.classList.remove('text-gray-600');
+                btnP.classList.remove('bg-white', 'shadow-sm', 'main-text-primary'); btnP.classList.add('text-gray-600');
+            }
+            renderQuestions();
+        }
+
+        function renderSessionsList() {
+            if (!isAdmin && !isClient) return; // Non-admin/client tidak boleh melihat daftar sesi lain
+            const list = document.getElementById('sessions-list');
+            list.innerHTML = Object.keys(sessions).map(id => {
+                const s = sessions[id];
+                const isActive = id === currentSessionId;
+                const Tag = isActive ? 'div' : 'button';
+                const onclick = isActive ? '' : `onclick="switchSession('${id}')"`;
+                
+                return `
+                    <div class="group relative">
+                        <${Tag} ${onclick} class="w-full flex items-center justify-between p-3 rounded-xl transition-all ${isActive ? 'main-bg-light main-text-primary' : 'hover:bg-gray-50 text-gray-600 cursor-pointer text-left'}">
+                            <div class="flex items-center gap-3 overflow-hidden pr-24">
+                                <i data-lucide="${isActive ? 'play-circle' : 'circle'}" class="w-4 h-4 shrink-0 ${isActive ? 'main-text-primary' : 'text-gray-300'}"></i>
+                                <div class="flex flex-col overflow-hidden">
+                                    <span class="font-bold truncate text-sm">${escapeHtml(s.name)}</span>
+                                    <span class="text-[10px] opacity-60 font-mono tracking-tighter">CODE: ${s.shortCode || 'N/A'}</span>
+                                </div>
+                            </div>
+                        </${Tag}>
+                        <div class="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
+                            ${(isAdmin || isClient) ? `
+                                ${isActive ? `
+                                    <button onclick="downloadQuestionsPDF()" class="p-1.5 text-slate-400 hover:main-text-primary transition-colors" title="Download Report">
+                                        <i data-lucide="file-text" class="w-3.5 h-3.5"></i>
+                                    </button>
+                                ` : ''}
+                                <button onclick="copySessionLink('${id}')" class="px-2 py-1 text-[9px] font-black bg-slate-100 text-slate-600 rounded shadow-sm hover:bg-slate-200 transition-all uppercase tracking-tighter flex items-center gap-1">
+                                    <i data-lucide="link" class="w-2.5 h-2.5"></i>
+                                    Salin
+                                </button>
+                                <button onclick="showQRCode('${id}')" class="px-2 py-1 text-[9px] font-black main-primary text-white rounded shadow-sm opacity-90 hover:opacity-100 transition-all uppercase tracking-tighter">
+                                    QR
+                                </button>
+                            ` : ''}
+                            ${(isAdmin || isSuperAdmin) ? `
+                                <button onclick="deleteSession('${id}', event)" class="p-1 hover:text-red-500 transition-all" title="Hapus Sesi">
+                                    <i data-lucide="trash-2" class="w-4 h-4"></i>
+                                </button>
+                            ` : ''}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+            lucide.createIcons();
+        }
+
+        function renderQuestions() {
+            const session = getCurrentSession();
+            const list = document.getElementById('questions-list');
+            const presList = document.getElementById('presenter-questions');
+            const countLabel = document.getElementById('question-count');
+            const sessionNameElem = document.getElementById('current-session-name');
+
+            if (!session) {
+                if (sessionNameElem) sessionNameElem.textContent = 'Tidak ada sesi aktif';
+                if (list) list.innerHTML = '<div class="text-center py-12 text-gray-400">Pilih atau buat sesi baru untuk melihat pertanyaan.</div>';
+                if (presList) presList.innerHTML = '<div class="text-center py-12 text-gray-400">Pilih atau buat sesi baru.</div>';
+                if (countLabel) countLabel.textContent = '0 Pertanyaan';
+                
+                // Reset header session code
+                const headerCodeSpan = document.getElementById('header-session-code');
+                if (headerCodeSpan) headerCodeSpan.textContent = 'CODE: N/A';
+                return;
+            }
+            
+            if (sessionNameElem) sessionNameElem.textContent = session.name;
+            
+            // Update header session code
+            const headerCodeSpan = document.getElementById('header-session-code');
+            if (headerCodeSpan) {
+                headerCodeSpan.textContent = `CODE: ${session.shortCode || currentSessionId.split('-').pop()}`;
+            }
+            const sorted = [...session.questions].sort((a, b) => b.upvotes - a.upvotes);
+            countLabel.textContent = `${session.questions.length} Pertanyaan`;
+
+            // Participant View
+            list.innerHTML = sorted.length === 0 
+                ? `<div class="text-center py-12 text-gray-400">Belum ada pertanyaan di sesi ini.</div>`
+                : sorted.map(q => {
+                    const comments = q.comments || [];
+                    const reactions = q.reactions || {};
+                    return `
+                    <div class="question-card bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden ${q.isAnswered ? 'opacity-80 bg-gray-50' : ''}">
+                        <div class="p-5 flex gap-4 items-start">
+                            <div class="flex flex-col items-center gap-1">
+                                <button onclick="upvoteQuestion(${q.id})" class="p-2 hover:bg-slate-50 rounded-lg main-text-primary transition-colors group">
+                                    <i data-lucide="chevron-up" class="w-6 h-6 group-hover:-translate-y-1 transition-transform"></i>
+                                </button>
+                                <span class="font-bold main-text-primary">${q.upvotes}</span>
+                            </div>
+                            <div class="flex-1">
+                                <div class="flex justify-between items-start">
+                                    <p class="text-gray-800 leading-relaxed mb-2 font-bold uppercase text-2xl">${escapeHtml(q.text)}</p>
+                                    ${isAdmin ? `<button onclick="deleteQuestion(${q.id})" class="text-gray-300 hover:text-red-500 p-1"><i data-lucide="trash-2" class="w-4 h-4"></i></button>` : ''}
+                                </div>
+                                <div class="flex flex-wrap items-center gap-4 text-xs text-gray-400">
+                                    <span class="flex items-center gap-1"><i data-lucide="clock" class="w-3 h-3"></i> ${formatTime(q.timestamp)}</span>
+                                    ${q.isAnswered ? '<span class="text-green-600 font-bold flex items-center gap-1"><i data-lucide="check-circle" class="w-3 h-3"></i> TERJAWAB</span>' : ''}
+                                    <button onclick="toggleComments(${q.id})" class="flex items-center gap-2 hover:opacity-80 transition-colors font-black uppercase tracking-wider main-text-primary text-lg px-3 py-2 rounded-lg hover:bg-slate-50">
+                                        <i data-lucide="message-square" class="w-6 h-6"></i>
+                                        ${comments.length} Komentar
+                                    </button>
+                                </div>
+
+                                <!-- Emoji Reactions -->
+                                <div class="flex flex-wrap gap-2 mt-3">
+                                    ${Object.entries(reactions).filter(([_, count]) => count > 0).map(([emoji, count]) => `
+                                        <div class="relative group/reac">
+                                            <button onclick="addReaction(${q.id}, '${emoji}')" class="flex items-center gap-1.5 px-2.5 py-1.5 bg-slate-50 hover:bg-slate-100 border border-slate-100 rounded-full transition-all group active:scale-90">
+                                                <span class="text-base">${emoji}</span>
+                                                <span class="font-bold main-text-primary">${count}</span>
+                                            </button>
+                                            ${isAdmin ? `
+                                                <button onclick="removeReaction(${q.id}, '${emoji}')" class="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-4 h-4 flex items-center justify-center opacity-0 group-hover/reac:opacity-100 transition-opacity shadow-sm hover:bg-red-600">
+                                                    <i data-lucide="x" class="w-2.5 h-2.5"></i>
+                                                </button>
+                                            ` : ''}
+                                        </div>
+                                    `).join('')}
+                                    <button onclick="promptNewReaction(${q.id})" class="flex items-center justify-center w-9 h-9 bg-slate-50 hover:bg-slate-100 border border-dashed border-slate-200 rounded-full transition-all group active:scale-90" title="Tambah Reaksi">
+                                        <i data-lucide="plus" class="w-4 h-4 text-slate-400 group-hover:main-text-primary"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Comments Section -->
+                        <div id="comments-${q.id}" class="hidden bg-slate-50 border-t border-gray-100 p-4 space-y-4">
+                            <div class="space-y-3">
+                                ${comments.map(c => `
+                                    <div class="flex gap-3 items-start">
+                                        <div class="w-7 h-7 bg-white rounded-full flex items-center justify-center border border-gray-200 shrink-0">
+                                            <i data-lucide="user" class="w-4 h-4 text-slate-400"></i>
+                                        </div>
+                                        <div class="bg-white px-4 py-2 rounded-2xl border border-gray-100 shadow-sm flex-1">
+                                            <p class="text-sm text-slate-700">${escapeHtml(c.text)}</p>
+                                            <span class="text-[10px] text-slate-400 mt-1 block">${formatTime(c.timestamp)}</span>
+                                        </div>
+                                    </div>
+                                `).join('')}
+                                ${comments.length === 0 ? '<p class="text-center text-xs text-slate-400 py-2 italic">Belum ada komentar.</p>' : ''}
+                            </div>
+                            
+                            <!-- Add Comment Input -->
+                             <div class="flex gap-3 pt-4 border-t border-slate-200/50">
+                                 <input type="text" id="comment-input-${q.id}" onkeypress="if(event.key === 'Enter') submitComment(${q.id})" class="flex-1 px-6 py-4 text-lg bg-white border-2 border-gray-200 rounded-2xl focus:ring-2 main-border-primary focus:border-transparent outline-none transition-all font-medium" placeholder="Tulis komentar Anda...">
+                                 <button onclick="submitComment(${q.id})" class="bg-slate-800 hover:bg-slate-900 text-white px-6 py-4 rounded-2xl transition-all font-bold text-lg flex items-center gap-3 shadow-lg hover:shadow-xl active:scale-95">
+                                     <i data-lucide="send" class="w-6 h-6"></i>
+                                     Kirim
+                                 </button>
+                             </div>
+                        </div>
+                    </div>
+                `;
+                }).join('');
+
+            // Presenter View
+            presList.innerHTML = sorted.length === 0
+                ? `<div class="text-center py-12 text-gray-300 text-xl italic">Menunggu pertanyaan...</div>`
+                : sorted.map((q, index) => `
+                    <div class="bg-white p-8 rounded-2xl shadow-md border-l-8 ${index === 0 ? 'main-border-primary' : 'border-gray-200'} flex justify-between items-center">
+                        <div class="flex-1">
+                            <div class="flex items-center gap-2 mb-2">
+                                <span class="bg-gray-100 text-gray-600 px-2 py-1 rounded text-xs font-bold">#${index + 1}</span>
+                                <span class="text-gray-400 text-xs">${formatTime(q.timestamp)}</span>
+                            </div>
+                            <h2 class="text-2xl font-semibold text-gray-800">${escapeHtml(q.text)}</h2>
+                            <div class="flex flex-wrap gap-3 mt-4">
+                                ${Object.entries(q.reactions || {}).map(([emoji, count]) => count > 0 ? `
+                                    <div class="flex items-center gap-1.5 px-3 py-1 bg-gray-50 rounded-full border border-gray-100">
+                                        <span class="text-xl">${emoji}</span>
+                                        <span class="font-bold text-gray-700">${count}</span>
+                                    </div>
+                                ` : '').join('')}
+                            </div>
+                        </div>
+                        <div class="text-center ml-8 px-6 border-l border-gray-100">
+                            <div class="text-4xl font-black main-text-primary">${q.upvotes}</div>
+                            <div class="text-[10px] text-gray-400 uppercase tracking-widest font-bold">Upvotes</div>
+                            ${isAdmin ? `
+                            <button onclick="toggleAnswered(${q.id})" class="mt-4 px-4 py-1.5 rounded-full text-xs font-medium border ${q.isAnswered ? 'bg-green-50 text-green-600 border-green-200' : 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100'}">
+                                ${q.isAnswered ? 'Selesai' : 'Tandai Terjawab'}
+                            </button>
+                            ` : ''}
+                        </div>
+                    </div>
+                `).join('');
+            lucide.createIcons();
+        }
+
+        // --- OTHER LOGIC ---
+        async function submitQuestion() {
+            const input = document.getElementById('question-input');
+            const text = input.value.trim();
+            if (!text) return;
+            const session = getCurrentSession();
+            if (!session) return;
+
+            const btn = document.querySelector('button[onclick="submitQuestion()"]');
+            btn.disabled = true;
+            btn.innerHTML = 'Mengirim...';
+
+            try {
+                await fetch(API_URL, {
+                    method: 'POST',
+                    mode: 'no-cors',
+                    body: JSON.stringify({
+                        action: 'submit_question',
+                        session_code: session.shortCode || currentSessionId,
+                        content: text
+                    })
+                });
+
+                // Immediate local feedback
+                session.questions.unshift({ 
+                    id: Date.now(), 
+                    text: text, 
+                    upvotes: 0, 
+                    timestamp: new Date().toISOString(), 
+                    isAnswered: false,
+                    comments: [],
+                    reactions: {}
+                });
+                renderQuestions(); 
+                input.value = '';
+                addLog('Pertanyaan berhasil dikirim ke server.', 'success');
+            } catch (error) {
+                console.error("Submit question error:", error);
+                alert("Gagal mengirim pertanyaan.");
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = 'Kirim Pertanyaan <i data-lucide="send" class="w-5 h-5"></i>';
+                lucide.createIcons();
+            }
+        }
+
+        function toggleComments(qId) {
+            const commentSection = document.getElementById(`comments-${qId}`);
+            if (commentSection) {
+                commentSection.classList.toggle('hidden');
+            }
+        }
+
+        function submitComment(qId) {
+            const input = document.getElementById(`comment-input-${qId}`);
+            const text = input.value.trim();
+            if (!text) return;
+            
+            const session = getCurrentSession();
+            if (!session) return;
+            
+            const question = session.questions.find(q => q.id === qId);
+            if (question) {
+                if (!question.comments) question.comments = [];
+                question.comments.push({
+                    id: Date.now(),
+                    text: text,
+                    timestamp: new Date().toISOString()
+                });
+                saveSessions();
+                renderQuestions();
+            }
+        }
+
+        function upvoteQuestion(id) {
+            const session = getCurrentSession();
+            if (!session) return;
+            const q = session.questions.find(q => q.id === id);
+            if (q) { q.upvotes += 1; saveSessions(); renderQuestions(); }
+        }
+
+        let activeReactionQuestionId = null;
+
+        function addReaction(qId, emoji) {
+            const session = getCurrentSession();
+            if (!session) return;
+            const q = session.questions.find(q => q.id === qId);
+            if (q) {
+                if (!q.reactions) {
+                    q.reactions = {};
+                }
+                if (q.reactions[emoji] === undefined) {
+                    q.reactions[emoji] = 0;
+                }
+                q.reactions[emoji]++;
+                saveSessions();
+                renderQuestions();
+            }
+        }
+
+        function removeReaction(qId, emoji) {
+            if (!isAdmin) return;
+            const session = getCurrentSession();
+            if (!session) return;
+            const q = session.questions.find(q => q.id === qId);
+            if (q && q.reactions) {
+                delete q.reactions[emoji];
+                saveSessions();
+                renderQuestions();
+            }
+        }
+
+        function promptNewReaction(qId) {
+            activeReactionQuestionId = qId;
+            document.getElementById('emoji-modal').classList.remove('hidden');
+            document.getElementById('custom-emoji-input').value = '';
+            lucide.createIcons();
+        }
+
+        function hideEmojiModal() {
+            document.getElementById('emoji-modal').classList.add('hidden');
+            activeReactionQuestionId = null;
+        }
+
+        function selectEmoji(emoji) {
+            if (activeReactionQuestionId) {
+                addReaction(activeReactionQuestionId, emoji);
+                hideEmojiModal();
+            }
+        }
+
+        function submitCustomEmoji() {
+            const input = document.getElementById('custom-emoji-input');
+            const emoji = input.value.trim();
+            if (emoji && activeReactionQuestionId) {
+                addReaction(activeReactionQuestionId, emoji);
+                hideEmojiModal();
+            }
+        }
+
+        function toggleAnswered(id) {
+            if (!isAdmin) return;
+            const session = getCurrentSession();
+            if (!session) return;
+            const q = session.questions.find(q => q.id === id);
+            if (q) { q.isAnswered = !q.isAnswered; saveSessions(); renderQuestions(); }
+        }
+
+        function updateTimer() {
+            const session = getCurrentSession();
+            if (!session) return;
+            const now = Date.now();
+            const elapsed = now - parseInt(session.startTime);
+            const remaining = Math.max(0, SESSION_DURATION - elapsed);
+            const hours = Math.floor(remaining / (1000 * 60 * 60));
+            const minutes = Math.floor((remaining % (1000 * 60 * 60)) / (1000 * 60));
+            const seconds = Math.floor((remaining % (1000 * 60)) / 1000);
+            document.getElementById('session-timer').textContent = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+            if (remaining <= 0) checkSessions();
+        }
+
+        function showQRCode(id) {
+            const sessionId = id || currentSessionId;
+            qrModalSessionId = sessionId; // Store for download function
+            
+            const modal = document.getElementById('qr-modal');
+            const qrContainer = document.getElementById('qrcode');
+            const session = sessions[sessionId];
+            if (!session) return;
+
+            document.getElementById('qr-session-name').textContent = session.name;
+            document.getElementById('qr-session-id-display').textContent = session.shortCode || sessionId.split('-').pop();
+            
+            // Update header session code juga
+            const headerCodeSpan = document.getElementById('header-session-code');
+            if (headerCodeSpan) {
+                headerCodeSpan.textContent = `CODE: ${session.shortCode || sessionId.split('-').pop()}`;
+            }
+            
+            modal.classList.remove('hidden');
+            qrContainer.innerHTML = '';
+            
+            // Build absolute URL for QR
+            const baseUrl = window.location.origin + window.location.pathname;
+            const sessionUrl = baseUrl + '#' + sessionId;
+            
+            const primaryColor = getComputedStyle(document.documentElement).getPropertyValue('--main-primary').trim() || "#ea580c";
+            
+            new QRCode(qrContainer, { 
+                text: sessionUrl, 
+                width: 200, 
+                height: 200, 
+                colorDark : primaryColor, 
+                colorLight : "#ffffff", 
+                correctLevel : QRCode.CorrectLevel.H 
+            });
+        }
+
+        function hideQRCode() { 
+            document.getElementById('qr-modal').classList.add('hidden');
+            qrModalSessionId = null;
+        }
+
+        function downloadQRCode() {
+            const qrCanvas = document.querySelector('#qrcode canvas');
+            if (!qrCanvas || !qrModalSessionId) return;
+            
+            const session = sessions[qrModalSessionId];
+            if (!session) return;
+            
+            const suffix = session.shortCode || qrModalSessionId.split('-').pop();
+            const link = document.createElement('a');
+            link.download = `barcode-${session.name.replace(/\s+/g, '-').toLowerCase()}-${suffix}.png`;
+            link.href = qrCanvas.toDataURL("image/png");
+            link.click();
+        }
+
+        function downloadQuestionsPDF() {
+            const session = getCurrentSession();
+            if (!session || !session.questions || session.questions.length === 0) {
+                alert("Tidak ada pertanyaan untuk diunduh.");
+                return;
+            }
+
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            
+            // Get dynamic primary color for PDF
+            const primaryColor = getComputedStyle(document.documentElement).getPropertyValue('--main-primary').trim() || "#ea580c";
+            // Convert hex to RGB for jsPDF
+            const hexToRgb = (hex) => {
+                const r = parseInt(hex.slice(1, 3), 16);
+                const g = parseInt(hex.slice(3, 5), 16);
+                const b = parseInt(hex.slice(5, 7), 16);
+                return [r, g, b];
+            };
+            const rgbColor = hexToRgb(primaryColor);
+
+            // Tambahkan Logo di pojok kanan atas
+            const logoUrl = 'assets/img/logo.png';
+            
+            // Header
+            doc.setFontSize(20);
+            doc.setTextColor(rgbColor[0], rgbColor[1], rgbColor[2]);
+            doc.text("Laporan Pertanyaan Q&A", 14, 22);
+            
+            // Tambahkan logo jika tersedia
+            try {
+                // x: 140 (agar di kanan), y: 10, w: 50, h: 20 (proporsi logo Aston/Generic)
+                doc.addImage(logoUrl, 'PNG', 140, 8, 50, 20);
+            } catch (e) {
+                console.warn("Logo tidak ditemukan atau gagal dimuat:", e);
+            }
+            
+            doc.setFontSize(12);
+            doc.setTextColor(100, 116, 139); // Slate-500
+            doc.text(`Sesi: ${session.name}`, 14, 32);
+            doc.text(`Waktu Unduh: ${new Date().toLocaleString('id-ID')}`, 14, 39);
+            
+            const tableData = session.questions
+                .sort((a, b) => b.upvotes - a.upvotes)
+                .map((q, index) => {
+                    const reactionsStr = Object.entries(q.reactions || {})
+                        .filter(([_, count]) => count > 0)
+                        .map(([emoji, count]) => `${emoji} ${count}`)
+                        .join(', ');
+                    
+                    return [
+                        index + 1,
+                        q.text,
+                        q.upvotes,
+                        reactionsStr || '-',
+                        q.isAnswered ? 'Ya' : 'Tidak',
+                        formatTime(q.timestamp)
+                    ];
+                });
+
+            doc.autoTable({
+                startY: 50,
+                head: [['No', 'Pertanyaan', 'Upvotes', 'Reaksi', 'Terjawab', 'Waktu']],
+                body: tableData,
+                headStyles: { fillColor: rgbColor },
+                styles: { font: 'helvetica', fontSize: 10 },
+                columnStyles: {
+                    0: { cellWidth: 10 },
+                    1: { cellWidth: 'auto' },
+                    2: { cellWidth: 20, halign: 'center' },
+                    3: { cellWidth: 30 },
+                    4: { cellWidth: 20, halign: 'center' },
+                    5: { cellWidth: 30 }
+                }
+            });
+
+            doc.save(`Q&A-${session.name.replace(/\s+/g, '-').toLowerCase()}-${Date.now()}.pdf`);
+        }
+
+        function copySessionLink(id) {
+            const sessionId = id || qrModalSessionId || currentSessionId;
+            const baseUrl = window.location.origin + window.location.pathname;
+            const sessionUrl = baseUrl + '#' + sessionId;
+            
+            navigator.clipboard.writeText(sessionUrl).then(() => {
+                alert('Link sesi berhasil disalin ke clipboard!');
+            }).catch(err => {
+                console.error('Gagal menyalin link: ', err);
+                // Fallback for older browsers
+                const el = document.createElement('textarea');
+                el.value = sessionUrl;
+                document.body.appendChild(el);
+                el.select();
+                document.execCommand('copy');
+                document.body.removeChild(el);
+                alert('Link sesi berhasil disalin!');
+            });
+        }
+
+        function renderAll() { renderSessionsList(); renderQuestions(); }
+        function formatTime(iso) { return new Date(iso).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }); }
+        function addLog(message, type = 'info') {
+            console.log(`[${type.toUpperCase()}] ${message}`);
+            // You can implement a UI log if needed, but console is fine for now
+        }
+
+        function escapeHtml(text) { const d = document.createElement('div'); d.textContent = text; return d.innerHTML; }
+
+        async function fetchQuestionsFromServer() {
+            const session = getCurrentSession();
+            if (!session || !session.shortCode) return;
+
+            try {
+                const response = await fetch(`${API_URL}?action=get_questions&code=${session.shortCode}`);
+                const questions = await response.json();
+                
+                if (Array.isArray(questions)) {
+                    // Map GAS response to local format
+                    session.questions = questions.map((q, idx) => ({
+                        id: idx, // or some other ID from GAS if available
+                        text: q.content,
+                        upvotes: q.votes || 0,
+                        timestamp: q.time,
+                        isAnswered: false,
+                        comments: [],
+                        reactions: {}
+                    }));
+                    renderQuestions();
+                }
+            } catch (error) {
+                console.error("Fetch questions error:", error);
+            }
+        }
+
+        // --- LISTENERS ---
+        window.addEventListener('hashchange', () => { 
+            currentSessionId = getSessionFromUrl() || DEFAULT_SESSION_ID; 
+            updateAdminUI();
+            renderAll(); 
+            fetchQuestionsFromServer(); // Fetch immediately on session change
+        });
+        window.addEventListener('storage', (e) => { if (e.key === 'qa_sessions') { sessions = JSON.parse(e.newValue); renderAll(); } });
+        
+        ['admin-page-username', 'admin-page-password'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) {
+                el.addEventListener('keydown', (e) => { if (e.key === 'Enter') loginAdminFromPage(); });
+                el.addEventListener('keypress', (e) => { if (e.key === 'Enter') loginAdminFromPage(); });
+            }
+        });
+
+        (function() {
+            const el = document.getElementById('new-session-name');
+            if (el) {
+                el.addEventListener('keydown', (e) => { if (e.key === 'Enter') confirmCreateSession(); });
+                el.addEventListener('keypress', (e) => { if (e.key === 'Enter') confirmCreateSession(); });
+            }
+        })();
+
+        (function() {
+            const el = document.getElementById('join-session-code');
+            if (el) {
+                el.addEventListener('keydown', (e) => { if (e.key === 'Enter') joinSessionByCode(); });
+                el.addEventListener('keypress', (e) => { if (e.key === 'Enter') joinSessionByCode(); });
+            }
+        })();
+
+        // --- INIT ---
+        setInterval(updateTimer, 1000);
+        setInterval(fetchQuestionsFromServer, 5000); // Polling every 5 seconds
+        
+        // Initial Page Routing
+        if (currentUser) {
+            if (isSuperAdmin) {
+                showMasterDashboard();
+            } else {
+                showMainApp();
+                updateAdminUI();
+            }
+        } else {
+            showLandingPage();
+        }
+
+        checkSessions();
+        applyLandingConfig();
+        applyLoginConfig();
+        lucide.createIcons();
+        renderAll();
+        lucide.createIcons();
+        
+        // Browser compatibility check for WebRTC
+        function checkWebRTCSupport() {
+            const hasRTCPeerConnection = window.RTCPeerConnection || window.webkitRTCPeerConnection || window.mozRTCPeerConnection;
+            const hasWebSocket = 'WebSocket' in window;
+            return hasRTCPeerConnection && hasWebSocket;
+        }
+    </script>
+    <!-- PeerJS for Realtime -->
+    <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+    <script>
+        // Load PeerJS with fallback
+        if (checkWebRTCSupport()) {
+            console.log('WebRTC supported - Realtime features enabled');
+        } else {
+            console.warn('WebRTC not supported - Realtime features disabled');
+            alert('Browser Anda tidak mendukung fitur realtime. Gunakan browser modern seperti Chrome, Firefox, Safari, atau Edge.');
+        }
+    </script>
+    <script src="realtime.js"></script>
+</body>
+</html>
