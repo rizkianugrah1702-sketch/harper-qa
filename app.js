@@ -1,4 +1,5 @@
 // --- CONSTANTS ---
+const API_URL = 'https://script.google.com/macros/s/AKfycbzYZ3767U3Exs3DXo8ksEe3qPbHjshxqyd1PKPTIn37WJfZJCZ_DB8LVnH-OH30jECFBg/exec';
 const SESSION_DURATION = 24 * 60 * 60 * 1000;
 const DEFAULT_SESSION_ID = 'default-session';
 
@@ -52,187 +53,6 @@ let currentView = 'participant';
 let isSuperAdmin = currentUser && (currentUser.role === 'administrator' || currentUser.role === 'superadmin');
 let isAdmin = currentUser && (currentUser.role === 'admin' || currentUser.role === 'administrator' || currentUser.role === 'superadmin');
 let isClient = currentUser && currentUser.role === 'client';
-
-// --- REAL-TIME SYNC (PeerJS) ---
-let peer = null;
-let conn = null; // Connection to Host (for Client)
-let connections = []; // Connections from Clients (for Host)
-let hostPeerId = null;
-let isHost = false;
-
-function initPeer() {
-    const urlParams = new URLSearchParams(window.location.search);
-    const remoteHostId = urlParams.get('host');
-
-    if (remoteHostId) {
-        // --- CLIENT MODE ---
-        console.log("Initializing Client Mode...");
-        peer = new Peer(); // Auto-generate ID
-        
-        peer.on('open', (id) => {
-            console.log('My Peer ID: ' + id);
-            conn = peer.connect(remoteHostId);
-            
-            conn.on('open', () => {
-                console.log('Connected to Host');
-                // Request initial state
-                conn.send({ type: 'request_sync' });
-                
-                // Keep connection alive
-                setInterval(() => {
-                    if(conn.open) conn.send({ type: 'ping' });
-                }, 5000);
-            });
-
-            conn.on('data', (data) => {
-                handleIncomingData(data);
-            });
-            
-            conn.on('close', () => {
-                alert("Koneksi ke Host terputus.");
-            });
-        });
-        
-        peer.on('error', (err) => {
-            console.error('PeerJS Error:', err);
-            // alert("Gagal terhubung ke sesi realtime: " + err.type);
-        });
-
-    } else {
-        // --- HOST MODE ---
-        console.log("Initializing Host Mode...");
-        // Try to retrieve previous ID to keep QR codes valid if possible, but PeerJS usually assigns new one unless we have API key
-        peer = new Peer(); 
-        
-        peer.on('open', (id) => {
-            console.log('Host Peer ID: ' + id);
-            hostPeerId = id;
-            isHost = true;
-            
-            // Render QR again to include host param
-            if (qrModalSessionId) showQRCode(qrModalSessionId);
-        });
-
-        peer.on('connection', (c) => {
-            console.log("New client connected:", c.peer);
-            connections.push(c);
-            
-            c.on('data', (data) => {
-                handleHostIncomingData(data, c);
-            });
-            
-            c.on('close', () => {
-                connections = connections.filter(conn => conn !== c);
-            });
-            
-            // Send current state immediately
-            c.send({ 
-                type: 'sync_sessions', 
-                data: sessions,
-                currentSessionId: currentSessionId
-            });
-        });
-    }
-}
-
-// Client handles data from Host
-function handleIncomingData(data) {
-    if (data.type === 'sync_sessions') {
-        sessions = data.data;
-        // Optionally sync current session if Host wants to force it
-        // currentSessionId = data.currentSessionId; 
-        renderAll();
-    } else if (data.type === 'force_session_switch') {
-        switchSession(data.sessionId);
-    }
-}
-
-// Host handles data from Clients
-function handleHostIncomingData(data, sender) {
-    if (data.type === 'submit_question') {
-        // Add question logic
-        const { sessionId, text } = data;
-        const session = sessions[sessionId];
-        if (session) {
-            session.questions.unshift({ 
-                id: Date.now(), 
-                text: text, 
-                upvotes: 0, 
-                timestamp: new Date().toISOString(), 
-                isAnswered: false,
-                comments: [],
-                reactions: {}
-            });
-            saveSessions();
-            renderQuestions();
-            broadcastSync();
-        }
-    } else if (data.type === 'upvote') {
-        const { sessionId, questionId } = data;
-        const session = sessions[sessionId];
-        if (session) {
-            const q = session.questions.find(q => q.id === questionId);
-            if (q) {
-                q.upvotes += 1;
-                saveSessions();
-                renderQuestions();
-                broadcastSync();
-            }
-        }
-    } else if (data.type === 'reaction') {
-        const { sessionId, questionId, emoji, action } = data; // action: add/remove
-        const session = sessions[sessionId];
-        if (session) {
-            const q = session.questions.find(q => q.id === questionId);
-            if (q) {
-                if (!q.reactions) q.reactions = {};
-                if (action === 'add') {
-                    q.reactions[emoji] = (q.reactions[emoji] || 0) + 1;
-                } else if (action === 'remove' && isAdmin) { // Only admin can remove via remote? Actually usually only admin removes
-                    delete q.reactions[emoji];
-                }
-                saveSessions();
-                renderQuestions();
-                broadcastSync();
-            }
-        }
-    } else if (data.type === 'comment') {
-        const { sessionId, questionId, text } = data;
-        const session = sessions[sessionId];
-        if (session) {
-            const q = session.questions.find(q => q.id === questionId);
-            if (q) {
-                if (!q.comments) q.comments = [];
-                q.comments.push({
-                    id: Date.now(),
-                    text: text,
-                    timestamp: new Date().toISOString()
-                });
-                saveSessions();
-                renderQuestions();
-                broadcastSync();
-            }
-        }
-    } else if (data.type === 'request_sync') {
-        sender.send({ 
-            type: 'sync_sessions', 
-            data: sessions,
-            currentSessionId: currentSessionId
-        });
-    }
-}
-
-function broadcastSync() {
-    if (!isHost) return;
-    const payload = { 
-        type: 'sync_sessions', 
-        data: sessions,
-        currentSessionId: currentSessionId
-    };
-    connections.forEach(c => {
-        if (c.open) c.send(payload);
-    });
-}
 
 // --- APP FUNCTIONS ---
 
@@ -553,36 +373,43 @@ function exitEvent() {
     }
 }
 
-function loginAdminFromPage() {
+async function loginAdminFromPage() {
     const user = document.getElementById('admin-page-username').value.trim();
     const pass = document.getElementById('admin-page-password').value.trim();
     
-    const foundUser = Object.values(users).find(u => u.username === user && u.password === pass);
-    
-    if (foundUser) {
-        currentUser = foundUser;
-        isSuperAdmin = foundUser.role === 'administrator' || foundUser.role === 'superadmin';
-        isAdmin = foundUser.role === 'admin' || foundUser.role === 'administrator' || foundUser.role === 'superadmin';
-        isClient = foundUser.role === 'client';
-        localStorage.setItem('currentUser', JSON.stringify(foundUser));
-        
-        if (isSuperAdmin) {
-            showMasterDashboard();
-        } else {
+    if (!user || !pass) return alert("Username dan Password harus diisi.");
+
+    const btn = document.querySelector('button[onclick="loginAdminFromPage()"]');
+    btn.innerHTML = 'Memproses...';
+    btn.disabled = true;
+
+    try {
+        const params = new URLSearchParams({
+            action: 'login_admin',
+            username: user,
+            password: pass
+        });
+
+        const response = await fetch(`${API_URL}?${params.toString()}`);
+        const result = await response.json();
+
+        if (result.status === "success") {
+            currentUser = { username: user, role: result.role };
+            isSuperAdmin = true;
+            isAdmin = true;
+            localStorage.setItem('currentUser', JSON.stringify(currentUser));
             showMainApp();
             updateAdminUI();
-            if (window.innerWidth < 1024) {
-                const sidebar = document.getElementById('sidebar');
-                const overlay = document.getElementById('sidebar-overlay');
-                sidebar.classList.remove('-translate-x-full');
-                overlay.classList.remove('hidden');
-            }
+            alert("Selamat Datang, Admin!");
+        } else {
+            alert(result.message || "Login Gagal!");
         }
-
-        document.getElementById('admin-page-username').value = '';
-        document.getElementById('admin-page-password').value = '';
-    } else {
-        alert("Username atau Password salah!");
+    } catch (error) {
+        console.error("Login error:", error);
+        alert("Koneksi gagal! Pastikan Google Apps Script sudah di-Deploy ulang sebagai 'Anyone'.");
+    } finally {
+        btn.innerHTML = 'Masuk Sekarang';
+        btn.disabled = false;
     }
 }
 
@@ -600,20 +427,40 @@ function logoutAdmin() {
     }
 }
 
-function joinSessionByCode() {
+async function joinSessionByCode() {
     const code = document.getElementById('join-session-code').value.trim().toUpperCase();
     if (!code) return;
     
-    const foundId = Object.keys(sessions).find(id => 
-        (sessions[id].shortCode && sessions[id].shortCode === code) || 
-        sessions[id].name.toLowerCase().includes(code.toLowerCase())
-    );
-    
-    if (foundId) {
-        switchSession(foundId);
-        document.getElementById('join-session-code').value = '';
-    } else {
-        alert("Sesi tidak ditemukan. Pastikan kode benar.");
+    const btn = document.querySelector('button[onclick="joinSessionByCode()"]');
+    const originalText = btn.innerHTML;
+    btn.innerHTML = '...';
+
+    try {
+        const response = await fetch(`${API_URL}?action=join_session&code=${code}`);
+        const result = await response.json();
+
+        if (result.status === 'success') {
+            if (!sessions[code]) {
+                sessions[code] = {
+                    id: code,
+                    shortCode: code,
+                    name: result.session_name,
+                    questions: [],
+                    startTime: Date.now().toString()
+                };
+            }
+            currentSessionId = code;
+            window.location.hash = code;
+            document.getElementById('join-session-code').value = '';
+            showMainApp();
+        } else {
+            alert(result.message);
+        }
+    } catch (error) {
+        console.error("Join error:", error);
+        alert("Gagal terhubung ke server.");
+    } finally {
+        btn.innerHTML = originalText;
     }
 }
 
@@ -855,34 +702,47 @@ function hideCreateSessionModal() {
     document.getElementById('create-session-modal').classList.add('hidden');
 }
 
-function confirmCreateSession() {
+async function confirmCreateSession() {
     const input = document.getElementById('new-session-name');
     const name = input.value.trim();
     if (!name) return alert("Nama sesi tidak boleh kosong.");
 
-    const id = 'session-' + Date.now();
-    const shortCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+    const code = Math.random().toString(36).substring(2, 8).toUpperCase();
     
-    sessions[id] = {
-        id: id,
-        shortCode: shortCode,
-        name: name,
-        questions: [],
-        startTime: Date.now().toString()
-    };
-    saveSessions();
-    broadcastSync();
-    
-    currentSessionId = id;
-    window.location.hash = id;
-    
-    hideCreateSessionModal();
-    if (window.innerWidth < 1024) toggleSidebar();
-    
-    setTimeout(() => {
-        showQRCode(id);
-        renderAll();
-    }, 100);
+    try {
+        const params = new URLSearchParams({
+            action: 'create_session',
+            code: code,
+            name: name
+        });
+        
+        await fetch(`${API_URL}?${params.toString()}`);
+
+        sessions[code] = {
+            id: code,
+            shortCode: code,
+            name: name,
+            questions: [],
+            startTime: Date.now().toString()
+        };
+        saveSessions();
+        
+        currentSessionId = code;
+        window.location.hash = code;
+        
+        hideCreateSessionModal();
+        if (window.innerWidth < 1024) toggleSidebar();
+        
+        setTimeout(() => {
+            showQRCode(code);
+            renderAll();
+        }, 100);
+
+        addLog(`Sesi "${name}" berhasil dibuat dengan kode: ${code}`, 'success');
+    } catch (error) {
+        console.error("Create session error:", error);
+        alert("Gagal membuat sesi di server.");
+    }
 }
 
 function switchSession(id) {
@@ -897,7 +757,6 @@ function deleteSession(id, event) {
     
     delete sessions[id];
     saveSessions();
-    broadcastSync();
     
     const remainingIds = Object.keys(sessions);
     if (currentSessionId === id) {
@@ -920,7 +779,6 @@ function deleteQuestion(qId) {
     session.questions = session.questions.filter(q => q.id !== qId);
     saveSessions();
     renderQuestions();
-    broadcastSync();
 }
 
 function toggleSidebar() {
@@ -951,7 +809,7 @@ function switchView(view) {
 }
 
 function renderSessionsList() {
-    if (!isAdmin && !isClient) return;
+    if (!isAdmin && !isClient) return; 
     const list = document.getElementById('sessions-list');
     list.innerHTML = Object.keys(sessions).map(id => {
         const s = sessions[id];
@@ -1009,10 +867,18 @@ function renderQuestions() {
         if (list) list.innerHTML = '<div class="text-center py-12 text-gray-400">Pilih atau buat sesi baru untuk melihat pertanyaan.</div>';
         if (presList) presList.innerHTML = '<div class="text-center py-12 text-gray-400">Pilih atau buat sesi baru.</div>';
         if (countLabel) countLabel.textContent = '0 Pertanyaan';
+        
+        const headerCodeSpan = document.getElementById('header-session-code');
+        if (headerCodeSpan) headerCodeSpan.textContent = 'CODE: N/A';
         return;
     }
     
     if (sessionNameElem) sessionNameElem.textContent = session.name;
+    
+    const headerCodeSpan = document.getElementById('header-session-code');
+    if (headerCodeSpan) {
+        headerCodeSpan.textContent = `CODE: ${session.shortCode || currentSessionId.split('-').pop()}`;
+    }
     const sorted = [...session.questions].sort((a, b) => b.upvotes - a.upvotes);
     countLabel.textContent = `${session.questions.length} Pertanyaan`;
 
@@ -1032,19 +898,18 @@ function renderQuestions() {
                     </div>
                     <div class="flex-1">
                         <div class="flex justify-between items-start">
-                            <p class="text-gray-800 leading-relaxed mb-2 font-medium">${escapeHtml(q.text)}</p>
+                            <p class="text-gray-800 leading-relaxed mb-2 font-bold uppercase text-2xl">${escapeHtml(q.text)}</p>
                             ${isAdmin ? `<button onclick="deleteQuestion(${q.id})" class="text-gray-300 hover:text-red-500 p-1"><i data-lucide="trash-2" class="w-4 h-4"></i></button>` : ''}
                         </div>
                         <div class="flex flex-wrap items-center gap-4 text-xs text-gray-400">
                             <span class="flex items-center gap-1"><i data-lucide="clock" class="w-3 h-3"></i> ${formatTime(q.timestamp)}</span>
                             ${q.isAnswered ? '<span class="text-green-600 font-bold flex items-center gap-1"><i data-lucide="check-circle" class="w-3 h-3"></i> TERJAWAB</span>' : ''}
-                            <button onclick="toggleComments(${q.id})" class="flex items-center gap-1.5 hover:opacity-70 transition-colors font-bold uppercase tracking-wider main-text-primary">
-                                <i data-lucide="message-square" class="w-3.5 h-3.5"></i>
+                            <button onclick="toggleComments(${q.id})" class="flex items-center gap-2 hover:opacity-80 transition-colors font-black uppercase tracking-wider main-text-primary text-lg px-3 py-2 rounded-lg hover:bg-slate-50">
+                                <i data-lucide="message-square" class="w-6 h-6"></i>
                                 ${comments.length} Komentar
                             </button>
                         </div>
 
-                        <!-- Emoji Reactions -->
                         <div class="flex flex-wrap gap-2 mt-3">
                             ${Object.entries(reactions).filter(([_, count]) => count > 0).map(([emoji, count]) => `
                                 <div class="relative group/reac">
@@ -1066,7 +931,6 @@ function renderQuestions() {
                     </div>
                 </div>
                 
-                <!-- Comments Section -->
                 <div id="comments-${q.id}" class="hidden bg-slate-50 border-t border-gray-100 p-4 space-y-4">
                     <div class="space-y-3">
                         ${comments.map(c => `
@@ -1083,10 +947,11 @@ function renderQuestions() {
                         ${comments.length === 0 ? '<p class="text-center text-xs text-slate-400 py-2 italic">Belum ada komentar.</p>' : ''}
                     </div>
                     
-                     <div class="flex gap-2 pt-2 border-t border-slate-200/50">
-                         <input type="text" id="comment-input-${q.id}" onkeypress="if(event.key === 'Enter') submitComment(${q.id})" class="flex-1 px-4 py-2 text-sm bg-white border border-gray-200 rounded-xl focus:ring-2 main-border-primary focus:border-transparent outline-none transition-all" placeholder="Tulis komentar...">
-                         <button onclick="submitComment(${q.id})" class="bg-slate-800 text-white p-2 rounded-xl hover:bg-slate-900 transition-all">
-                             <i data-lucide="send" class="w-4 h-4"></i>
+                     <div class="flex gap-3 pt-4 border-t border-slate-200/50">
+                         <input type="text" id="comment-input-${q.id}" onkeypress="if(event.key === 'Enter') submitComment(${q.id})" class="flex-1 px-6 py-4 text-lg bg-white border-2 border-gray-200 rounded-2xl focus:ring-2 main-border-primary focus:border-transparent outline-none transition-all font-medium" placeholder="Tulis komentar Anda...">
+                         <button onclick="submitComment(${q.id})" class="bg-slate-800 hover:bg-slate-900 text-white px-6 py-4 rounded-2xl transition-all font-bold text-lg flex items-center gap-3 shadow-lg hover:shadow-xl active:scale-95">
+                             <i data-lucide="send" class="w-6 h-6"></i>
+                             Kirim
                          </button>
                      </div>
                 </div>
@@ -1127,23 +992,26 @@ function renderQuestions() {
     lucide.createIcons();
 }
 
-function submitQuestion() {
+async function submitQuestion() {
     const input = document.getElementById('question-input');
     const text = input.value.trim();
     if (!text) return;
-    
-    if (conn && conn.open) {
-        // Client: Send to Host
-        conn.send({ 
-            type: 'submit_question', 
-            sessionId: currentSessionId, 
-            text: text 
+    const session = getCurrentSession();
+    if (!session) return;
+
+    const btn = document.querySelector('button[onclick="submitQuestion()"]');
+    btn.disabled = true;
+    btn.innerHTML = 'Mengirim...';
+
+    try {
+        const params = new URLSearchParams({
+            action: 'submit_question',
+            session_code: session.shortCode || currentSessionId,
+            content: text
         });
-        input.value = ''; // Optimistic clear
-    } else {
-        // Host or Offline
-        const session = getCurrentSession();
-        if (!session) return;
+
+        await fetch(`${API_URL}?${params.toString()}`);
+
         session.questions.unshift({ 
             id: Date.now(), 
             text: text, 
@@ -1153,18 +1021,22 @@ function submitQuestion() {
             comments: [],
             reactions: {}
         });
-        saveSessions(); 
         renderQuestions(); 
         input.value = '';
-        broadcastSync();
+        addLog('Pertanyaan berhasil dikirim ke server.', 'success');
+    } catch (error) {
+        console.error("Submit question error:", error);
+        alert("Gagal mengirim pertanyaan.");
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = 'Kirim Pertanyaan <i data-lucide="send" class="w-5 h-5"></i>';
+        lucide.createIcons();
     }
 }
 
 function toggleComments(qId) {
     const commentSection = document.getElementById(`comments-${qId}`);
-    if (commentSection) {
-        commentSection.classList.toggle('hidden');
-    }
+    if (commentSection) commentSection.classList.toggle('hidden');
 }
 
 function submitComment(qId) {
@@ -1172,76 +1044,53 @@ function submitComment(qId) {
     const text = input.value.trim();
     if (!text) return;
     
-    if (conn && conn.open) {
-        conn.send({ type: 'comment', sessionId: currentSessionId, questionId: qId, text: text });
-        input.value = '';
-    } else {
-        const session = getCurrentSession();
-        if (!session) return;
-        const question = session.questions.find(q => q.id === qId);
-        if (question) {
-            if (!question.comments) question.comments = [];
-            question.comments.push({
-                id: Date.now(),
-                text: text,
-                timestamp: new Date().toISOString()
-            });
-            saveSessions();
-            renderQuestions();
-            broadcastSync();
-        }
+    const session = getCurrentSession();
+    if (!session) return;
+    
+    const question = session.questions.find(q => q.id === qId);
+    if (question) {
+        if (!question.comments) question.comments = [];
+        question.comments.push({
+            id: Date.now(),
+            text: text,
+            timestamp: new Date().toISOString()
+        });
+        saveSessions();
+        renderQuestions();
     }
 }
 
 function upvoteQuestion(id) {
-    if (conn && conn.open) {
-        conn.send({ type: 'upvote', sessionId: currentSessionId, questionId: id });
-    } else {
-        const session = getCurrentSession();
-        if (!session) return;
-        const q = session.questions.find(q => q.id === id);
-        if (q) { q.upvotes += 1; saveSessions(); renderQuestions(); broadcastSync(); }
-    }
+    const session = getCurrentSession();
+    if (!session) return;
+    const q = session.questions.find(q => q.id === id);
+    if (q) { q.upvotes += 1; saveSessions(); renderQuestions(); }
 }
 
 let activeReactionQuestionId = null;
 
 function addReaction(qId, emoji) {
-    if (conn && conn.open) {
-        conn.send({ type: 'reaction', sessionId: currentSessionId, questionId: qId, emoji: emoji, action: 'add' });
-    } else {
-        const session = getCurrentSession();
-        if (!session) return;
-        const q = session.questions.find(q => q.id === qId);
-        if (q) {
-            if (!q.reactions) {
-                q.reactions = {};
-            }
-            if (q.reactions[emoji] === undefined) {
-                q.reactions[emoji] = 0;
-            }
-            q.reactions[emoji]++;
-            saveSessions();
-            renderQuestions();
-            broadcastSync();
-        }
+    const session = getCurrentSession();
+    if (!session) return;
+    const q = session.questions.find(q => q.id === qId);
+    if (q) {
+        if (!q.reactions) q.reactions = {};
+        if (q.reactions[emoji] === undefined) q.reactions[emoji] = 0;
+        q.reactions[emoji]++;
+        saveSessions();
+        renderQuestions();
     }
 }
 
 function removeReaction(qId, emoji) {
     if (!isAdmin) return;
-    if (conn && conn.open) {
-        conn.send({ type: 'reaction', sessionId: currentSessionId, questionId: qId, emoji: emoji, action: 'remove' });
-    } else {
-        const session = getCurrentSession();
-        if (!session) return;
-        const q = session.questions.find(q => q.id === qId);
-        if (q && q.reactions) {
-            delete q.reactions[emoji];
-            saveSessions();
-            renderQuestions();
-            broadcastSync();
-        }
+    const session = getCurrentSession();
+    if (!session) return;
+    const q = session.questions.find(q => q.id === qId);
+    if (q && q.reactions) {
+        delete q.reactions[emoji];
+        saveSessions();
+        renderQuestions();
     }
 }
 
@@ -1278,7 +1127,7 @@ function toggleAnswered(id) {
     const session = getCurrentSession();
     if (!session) return;
     const q = session.questions.find(q => q.id === id);
-    if (q) { q.isAnswered = !q.isAnswered; saveSessions(); renderQuestions(); broadcastSync(); }
+    if (q) { q.isAnswered = !q.isAnswered; saveSessions(); renderQuestions(); }
 }
 
 function updateTimer() {
@@ -1306,18 +1155,15 @@ function showQRCode(id) {
     document.getElementById('qr-session-name').textContent = session.name;
     document.getElementById('qr-session-id-display').textContent = session.shortCode || sessionId.split('-').pop();
     
+    const headerCodeSpan = document.getElementById('header-session-code');
+    if (headerCodeSpan) {
+        headerCodeSpan.textContent = `CODE: ${session.shortCode || sessionId.split('-').pop()}`;
+    }
+    
     modal.classList.remove('hidden');
     qrContainer.innerHTML = '';
     
-    // Build absolute URL for QR
-    // Include Host ID if we are host
-    let baseUrl = window.location.origin + window.location.pathname;
-    
-    // Add ?host=MY_PEER_ID if we have one
-    if (hostPeerId) {
-        baseUrl += `?host=${hostPeerId}`;
-    }
-    
+    const baseUrl = window.location.origin + window.location.pathname;
     const sessionUrl = baseUrl + '#' + sessionId;
     
     const primaryColor = getComputedStyle(document.documentElement).getPropertyValue('--main-primary').trim() || "#ea580c";
@@ -1426,10 +1272,7 @@ function downloadQuestionsPDF() {
 
 function copySessionLink(id) {
     const sessionId = id || qrModalSessionId || currentSessionId;
-    let baseUrl = window.location.origin + window.location.pathname;
-    if (hostPeerId) {
-        baseUrl += `?host=${hostPeerId}`;
-    }
+    const baseUrl = window.location.origin + window.location.pathname;
     const sessionUrl = baseUrl + '#' + sessionId;
     
     navigator.clipboard.writeText(sessionUrl).then(() => {
@@ -1448,26 +1291,70 @@ function copySessionLink(id) {
 
 function renderAll() { renderSessionsList(); renderQuestions(); }
 function formatTime(iso) { return new Date(iso).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }); }
+function addLog(message, type = 'info') {
+    console.log(`[${type.toUpperCase()}] ${message}`);
+}
+
 function escapeHtml(text) { const d = document.createElement('div'); d.textContent = text; return d.innerHTML; }
+
+async function fetchQuestionsFromServer() {
+    const session = getCurrentSession();
+    if (!session || !session.shortCode) return;
+
+    try {
+        const response = await fetch(`${API_URL}?action=get_questions&code=${session.shortCode}`);
+        const questions = await response.json();
+        
+        if (Array.isArray(questions)) {
+            session.questions = questions.map((q, idx) => ({
+                id: idx, 
+                text: q.content,
+                upvotes: q.votes || 0,
+                timestamp: q.time,
+                isAnswered: false,
+                comments: [],
+                reactions: {}
+            }));
+            renderQuestions();
+        }
+    } catch (error) {
+        console.error("Fetch questions error:", error);
+    }
+}
 
 // --- LISTENERS ---
 window.addEventListener('hashchange', () => { 
     currentSessionId = getSessionFromUrl() || DEFAULT_SESSION_ID; 
     updateAdminUI();
     renderAll(); 
+    fetchQuestionsFromServer(); 
 });
 window.addEventListener('storage', (e) => { if (e.key === 'qa_sessions') { sessions = JSON.parse(e.newValue); renderAll(); } });
 
 ['admin-page-username', 'admin-page-password'].forEach(id => {
-    document.getElementById(id).addEventListener('keypress', (e) => { if (e.key === 'Enter') loginAdminFromPage(); });
+    const el = document.getElementById(id);
+    if (el) {
+        el.addEventListener('keydown', (e) => { if (e.key === 'Enter') loginAdminFromPage(); });
+    }
 });
 
-document.getElementById('new-session-name').addEventListener('keypress', (e) => { if (e.key === 'Enter') confirmCreateSession(); });
+(function() {
+    const el = document.getElementById('new-session-name');
+    if (el) {
+        el.addEventListener('keydown', (e) => { if (e.key === 'Enter') confirmCreateSession(); });
+    }
+})();
 
-document.getElementById('join-session-code').addEventListener('keypress', (e) => { if (e.key === 'Enter') joinSessionByCode(); });
+(function() {
+    const el = document.getElementById('join-session-code');
+    if (el) {
+        el.addEventListener('keydown', (e) => { if (e.key === 'Enter') joinSessionByCode(); });
+    }
+})();
 
 // --- INIT ---
 setInterval(updateTimer, 1000);
+setInterval(fetchQuestionsFromServer, 5000); 
 
 if (currentUser) {
     if (isSuperAdmin) {
@@ -1486,6 +1373,3 @@ applyLoginConfig();
 lucide.createIcons();
 renderAll();
 lucide.createIcons();
-
-// Initialize Real-time Peer Connection
-initPeer();
