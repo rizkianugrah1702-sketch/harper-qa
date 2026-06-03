@@ -1,0 +1,45 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
+
+:root {
+    --main-primary: #ea580c;
+    --main-hover: #c2410c;
+    --landing-bg: url('https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?q=80&w=2070&auto=format&fit=crop');
+    --login-bg: url('https://images.unsplash.com/photo-1497366216548-37526070297c?q=80&w=2069&auto=format&fit=crop');
+}
+
+body { font-family: 'Plus Jakarta Sans', sans-serif; }
+
+/* Dynamic Styling for Main App */
+.main-primary { background-color: var(--main-primary) !important; }
+.main-text-primary { color: var(--main-primary) !important; }
+.main-border-primary { border-color: var(--main-primary) !important; }
+.main-ring-primary { --tw-ring-color: var(--main-primary) !important; }
+.main-bg-light { background-color: color-mix(in srgb, var(--main-primary), white 90%) !important; }
+
+.landing-bg-image { 
+    background-image: linear-gradient(rgba(0,0,0,0.6), rgba(0,0,0,0.6)), var(--landing-bg);
+    background-size: cover;
+    background-position: center;
+}
+
+.login-bg-image { 
+    background-image: linear-gradient(rgba(0,0,0,0.6), rgba(0,0,0,0.6)), var(--login-bg);
+    background-size: cover;
+    background-position: center;
+}
+
+.question-card { transition: all 0.2s ease; }
+.question-card:hover { transform: translateY(-2px); }
+.sidebar-transition { transition: transform 0.3s ease-in-out; }
+.admin-gradient { background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); }
+.glass-morphism { background: rgba(255, 255, 255, 0.7); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.2); }
+.animate-float { animation: float 6s ease-in-out infinite; }
+.custom-scrollbar::-webkit-scrollbar { width: 4px; }
+.custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+.custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+.custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+@keyframes float {
+    0% { transform: translateY(0px); }
+    50% { transform: translateY(-20px); }
+    100% { transform: translateY(0px); }
+}
