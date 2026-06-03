@@ -1082,7 +1082,7 @@ function toggleComments(qId) {
     if (commentSection) commentSection.classList.toggle('hidden');
 }
 
-function submitComment(qId) {
+async function submitComment(qId) {
     const input = document.getElementById(`comment-input-${qId}`);
     const text = input.value.trim();
     if (!text) return;
@@ -1090,38 +1090,75 @@ function submitComment(qId) {
     const session = getCurrentSession();
     if (!session) return;
     
-    const question = session.questions.find(q => q.id === qId);
-    if (question) {
+    const question = session.questions.find(q => q.id === qId || q.text === qId); // Fallback to text if ID is index
+    if (!question) return;
+
+    try {
+        const params = new URLSearchParams({
+            action: 'submit_comment',
+            session_code: session.shortCode,
+            question_text: question.text,
+            content: text
+        });
+        
+        await fetch(`${API_URL}?${params.toString()}`);
+
         if (!question.comments) question.comments = [];
         question.comments.push({
             id: Date.now(),
             text: text,
             timestamp: new Date().toISOString()
         });
-        saveSessions();
+        input.value = '';
         renderQuestions();
+    } catch (e) {
+        console.error("Comment error:", e);
+        alert("Gagal mengirim komentar.");
     }
 }
 
-function upvoteQuestion(id) {
+async function upvoteQuestion(id) {
     const session = getCurrentSession();
     if (!session) return;
     const q = session.questions.find(q => q.id === id);
-    if (q) { q.upvotes += 1; saveSessions(); renderQuestions(); }
+    if (!q) return;
+
+    try {
+        const params = new URLSearchParams({
+            action: 'upvote_question',
+            session_code: session.shortCode,
+            question_text: q.text
+        });
+        await fetch(`${API_URL}?${params.toString()}`);
+        
+        q.upvotes += 1; 
+        renderQuestions(); 
+    } catch (e) {
+        console.error("Upvote error:", e);
+    }
 }
 
-let activeReactionQuestionId = null;
-
-function addReaction(qId, emoji) {
+async function addReaction(qId, emoji) {
     const session = getCurrentSession();
     if (!session) return;
     const q = session.questions.find(q => q.id === qId);
-    if (q) {
+    if (!q) return;
+
+    try {
+        const params = new URLSearchParams({
+            action: 'submit_reaction',
+            session_code: session.shortCode,
+            question_text: q.text,
+            emoji: emoji
+        });
+        await fetch(`${API_URL}?${params.toString()}`);
+
         if (!q.reactions) q.reactions = {};
         if (q.reactions[emoji] === undefined) q.reactions[emoji] = 0;
         q.reactions[emoji]++;
-        saveSessions();
         renderQuestions();
+    } catch (e) {
+        console.error("Reaction error:", e);
     }
 }
 
@@ -1359,13 +1396,13 @@ async function fetchQuestionsFromServer() {
         
         if (Array.isArray(questions)) {
             session.questions = questions.map((q, idx) => ({
-                id: idx, 
+                id: q.id || idx, 
                 text: q.content,
                 upvotes: q.votes || 0,
                 timestamp: q.time,
-                isAnswered: false,
-                comments: [],
-                reactions: {}
+                isAnswered: q.isAnswered || false,
+                comments: q.comments ? (typeof q.comments === 'string' ? JSON.parse(q.comments) : q.comments) : [],
+                reactions: q.reactions ? (typeof q.reactions === 'string' ? JSON.parse(q.reactions) : q.reactions) : {}
             }));
             renderQuestions();
         }
@@ -1381,6 +1418,10 @@ window.addEventListener('hashchange', () => {
     renderAll(); 
     fetchQuestionsFromServer(); 
 });
+
+// Polling otomatis setiap 5 detik untuk sinkronisasi data
+setInterval(fetchQuestionsFromServer, 5000);
+
 window.addEventListener('storage', (e) => { if (e.key === 'qa_sessions') { sessions = JSON.parse(e.newValue); renderAll(); } });
 
 ['admin-page-username', 'admin-page-password'].forEach(id => {
