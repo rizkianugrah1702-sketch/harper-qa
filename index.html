@@ -1041,64 +1041,52 @@
         }
 
         async function loginAdminFromPage() {
-            const user = document.getElementById('admin-page-username').value.trim();
-            const pass = document.getElementById('admin-page-password').value.trim();
+    const user = document.getElementById('admin-page-username').value.trim();
+    const pass = document.getElementById('admin-page-password').value.trim();
+    
+    if (!user || !pass) return alert("Username dan Password harus diisi.");
+
+    const btn = document.querySelector('button[onclick="loginAdminFromPage()"]');
+    const originalText = btn.innerHTML;
+    btn.innerHTML = 'Memproses...';
+    btn.disabled = true;
+
+    try {
+        // Menggunakan URLSearchParams agar data dikirim via URL (lebih aman dari blokir CORS)
+        const params = new URLSearchParams({
+            action: 'login_admin',
+            username: user,
+            password: pass
+        });
+
+        const response = await fetch(`${API_URL}?${params.toString()}`);
+        const result = await response.json();
+
+        if (result.status === "success") {
+            currentUser = { username: user, role: result.role };
+            isSuperAdmin = result.role === 'super_admin';
+            isAdmin = true;
+            localStorage.setItem('currentUser', JSON.stringify(currentUser));
             
-            if (!user || !pass) return alert("Username dan Password harus diisi.");
-
-            const btn = document.querySelector('button[onclick="loginAdminFromPage()"]');
-            const originalText = btn.innerHTML;
-            btn.innerHTML = '<i class="animate-spin" data-lucide="loader-2"></i> Memproses...';
-            lucide.createIcons();
-            btn.disabled = true;
-
-            try {
-                const response = await fetch(API_URL, {
-                    method: 'POST',
-                    mode: 'no-cors', // Apps Script often requires no-cors for simple POST, but we need JSON response
-                    body: JSON.stringify({
-                        action: 'login_admin',
-                        username: user,
-                        password: pass
-                    })
-                });
-
-                // Apps Script 'no-cors' POST returns opaque response. 
-                // However, we can use a clever trick: use GET for login if POST is tricky, 
-                // OR use a standard fetch and handle the redirect.
-                // Better approach for Apps Script: Use GET for simple queries if possible, 
-                // or handle the fact that POST might not return JSON easily in some environments.
-                // Let's stick to a more robust fetch approach for GAS.
-                
-                const gasResponse = await fetch(`${API_URL}?action=login_admin&username=${encodeURIComponent(user)}&password=${encodeURIComponent(pass)}`);
-                const result = await gasResponse.json();
-
-                if (result.status === 'success') {
-                    currentUser = { username: user, role: result.role };
-                    isSuperAdmin = result.role === 'super_admin';
-                    isAdmin = true;
-                    localStorage.setItem('currentUser', JSON.stringify(currentUser));
-                    
-                    if (isSuperAdmin) {
-                        showMasterDashboard();
-                    } else {
-                        showMainApp();
-                        updateAdminUI();
-                    }
-                    document.getElementById('admin-page-username').value = '';
-                    document.getElementById('admin-page-password').value = '';
-                } else {
-                    alert(result.message || "Login Gagal!");
-                }
-            } catch (error) {
-                console.error("Login error:", error);
-                alert("Terjadi kesalahan koneksi ke server.");
-            } finally {
-                btn.innerHTML = originalText;
-                btn.disabled = false;
-                lucide.createIcons();
+            if (isSuperAdmin) {
+                showMasterDashboard();
+            } else {
+                showMainApp();
+                updateAdminUI();
             }
+            alert("Selamat Datang, Admin!");
+        } else {
+            alert(result.message || "Login Gagal!");
         }
+    } catch (error) {
+        console.error("Login error:", error);
+        // Jika masih error CORS, tampilkan instruksi ini ke user
+        alert("Gagal terhubung ke server. Pastikan Apps Script sudah di-Deploy sebagai 'Anyone'.");
+    } finally {
+        btn.innerHTML = originalText;
+        btn.disabled = false;
+    }
+}
 
         function logoutAdmin() {
             if (confirm("Logout dari akun ini?")) {
