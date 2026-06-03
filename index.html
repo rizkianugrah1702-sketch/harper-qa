@@ -1041,40 +1041,45 @@
         }
 
         async function loginAdminFromPage() {
-    const user = document.getElementById('admin-page-username').value.trim();
-    const pass = document.getElementById('admin-page-password').value.trim();
-    
-    if (!user || !pass) return alert("Username dan Password harus diisi.");
+            const user = document.getElementById('admin-page-username').value.trim();
+            const pass = document.getElementById('admin-page-password').value.trim();
+            
+            if (!user || !pass) return alert("Username dan Password harus diisi.");
 
-    const btn = document.querySelector('button[onclick="loginAdminFromPage()"]');
-    btn.innerHTML = 'Menghubungkan...';
-    btn.disabled = true;
+            const btn = document.querySelector('button[onclick="loginAdminFromPage()"]');
+            btn.innerHTML = 'Menghubungkan...';
+            btn.disabled = true;
 
-    try {
-        // Gunakan fetch sederhana tanpa header tambahan untuk menghindari CORS
-        const url = `${API_URL}?action=login_admin&username=${encodeURIComponent(user)}&password=${encodeURIComponent(pass)}`;
-        
-        const response = await fetch(url);
-        const result = await response.json();
+            try {
+                // Menggunakan URLSearchParams agar data dikirim via URL (lebih aman dari blokir CORS)
+                const params = new URLSearchParams({
+                    action: 'login_admin',
+                    username: user,
+                    password: pass
+                });
 
-        if (result.status === "success") {
-            currentUser = { username: user, role: result.role };
-            isSuperAdmin = true;
-            isAdmin = true;
-            localStorage.setItem('currentUser', JSON.stringify(currentUser));
-            showMainApp();
-            updateAdminUI();
-        } else {
-            alert(result.message);
+                const response = await fetch(`${API_URL}?${params.toString()}`);
+                const result = await response.json();
+
+                if (result.status === "success") {
+                    currentUser = { username: user, role: result.role };
+                    isSuperAdmin = true; // Apps Script return role 'super_admin'
+                    isAdmin = true;
+                    localStorage.setItem('currentUser', JSON.stringify(currentUser));
+                    showMainApp();
+                    updateAdminUI();
+                    alert("Selamat Datang, Admin!");
+                } else {
+                    alert(result.message || "Login Gagal!");
+                }
+            } catch (error) {
+                console.error("Login error:", error);
+                alert("Koneksi gagal! Pastikan Google Apps Script sudah di-Deploy ulang sebagai 'Anyone'.");
+            } finally {
+                btn.innerHTML = 'Masuk Sekarang';
+                btn.disabled = false;
+            }
         }
-    } catch (error) {
-        console.error("Error:", error);
-        alert("Koneksi gagal! Pastikan Google Apps Script sudah di-Deploy ulang sebagai 'Anyone'.");
-    } finally {
-        btn.innerHTML = 'Masuk Sekarang';
-        btn.disabled = false;
-    }
-}
 
         function logoutAdmin() {
             if (confirm("Logout dari akun ini?")) {
