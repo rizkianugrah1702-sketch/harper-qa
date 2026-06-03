@@ -1047,43 +1047,31 @@
     if (!user || !pass) return alert("Username dan Password harus diisi.");
 
     const btn = document.querySelector('button[onclick="loginAdminFromPage()"]');
-    const originalText = btn.innerHTML;
-    btn.innerHTML = 'Memproses...';
+    btn.innerHTML = 'Menghubungkan...';
     btn.disabled = true;
 
     try {
-        // Menggunakan URLSearchParams agar data dikirim via URL (lebih aman dari blokir CORS)
-        const params = new URLSearchParams({
-            action: 'login_admin',
-            username: user,
-            password: pass
-        });
-
-        const response = await fetch(`${API_URL}?${params.toString()}`);
+        // Gunakan fetch sederhana tanpa header tambahan untuk menghindari CORS
+        const url = `${API_URL}?action=login_admin&username=${encodeURIComponent(user)}&password=${encodeURIComponent(pass)}`;
+        
+        const response = await fetch(url);
         const result = await response.json();
 
         if (result.status === "success") {
             currentUser = { username: user, role: result.role };
-            isSuperAdmin = result.role === 'super_admin';
+            isSuperAdmin = true;
             isAdmin = true;
             localStorage.setItem('currentUser', JSON.stringify(currentUser));
-            
-            if (isSuperAdmin) {
-                showMasterDashboard();
-            } else {
-                showMainApp();
-                updateAdminUI();
-            }
-            alert("Selamat Datang, Admin!");
+            showMainApp();
+            updateAdminUI();
         } else {
-            alert(result.message || "Login Gagal!");
+            alert(result.message);
         }
     } catch (error) {
-        console.error("Login error:", error);
-        // Jika masih error CORS, tampilkan instruksi ini ke user
-        alert("Gagal terhubung ke server. Pastikan Apps Script sudah di-Deploy sebagai 'Anyone'.");
+        console.error("Error:", error);
+        alert("Koneksi gagal! Pastikan Google Apps Script sudah di-Deploy ulang sebagai 'Anyone'.");
     } finally {
-        btn.innerHTML = originalText;
+        btn.innerHTML = 'Masuk Sekarang';
         btn.disabled = false;
     }
 }
