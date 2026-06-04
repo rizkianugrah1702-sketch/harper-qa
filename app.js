@@ -26,7 +26,7 @@ function initApp() {
         }
     } else {
         if (isAdmin) {
-            showSessionManagement();
+            showMasterDashboard();
         } else {
             showLandingPage();
         }
@@ -39,6 +39,13 @@ function initApp() {
 function showLandingPage() {
     hideAllPages();
     document.getElementById('landing-page').classList.remove('hidden');
+    lucide.createIcons();
+}
+
+function showMasterDashboard() {
+    if (!isAdmin) return showLandingPage();
+    hideAllPages();
+    document.getElementById('master-dashboard').classList.remove('hidden');
     lucide.createIcons();
 }
 
@@ -87,7 +94,7 @@ function showParticipantView(sessionId) {
 }
 
 function hideAllPages() {
-    const pages = ['landing-page', 'session-management-page', 'admin-qa-dashboard', 'participant-dark-view', 'admin-auth-page'];
+    const pages = ['landing-page', 'master-dashboard', 'session-management-page', 'admin-qa-dashboard', 'participant-dark-view', 'admin-auth-page'];
     pages.forEach(id => {
         const el = document.getElementById(id);
         if (el) el.classList.add('hidden');
@@ -122,7 +129,7 @@ async function loginAdminFromPage() {
             currentUser = { username: user, role: result.role };
             isAdmin = true;
             localStorage.setItem('currentUser', JSON.stringify(currentUser));
-            showSessionManagement();
+            showMasterDashboard();
         } else {
             alert(result.message || "Login Gagal!");
         }

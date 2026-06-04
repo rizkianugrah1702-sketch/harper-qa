@@ -88,6 +88,70 @@
         </div>
     </div>
 
+    <!-- Master Dashboard (Beranda) -->
+    <div id="master-dashboard" class="fixed inset-0 z-[120] bg-slate-50 flex hidden flex-col overflow-y-auto">
+        <nav class="bg-white border-b px-8 h-20 flex items-center justify-between sticky top-0 z-10">
+            <div class="flex items-center gap-4">
+                <div class="bg-slate-900 p-2.5 rounded-xl">
+                    <i data-lucide="layout-grid" class="text-white w-6 h-6"></i>
+                </div>
+                <div>
+                    <h1 class="text-xl font-black text-slate-900 leading-none">Master<span class="main-text-primary">Control</span></h1>
+                    <p class="text-xs text-slate-400 font-bold mt-1 uppercase tracking-widest">Administrator Utama</p>
+                </div>
+            </div>
+            <div class="flex items-center gap-4">
+                <div class="flex items-center gap-2 px-4 py-2 bg-slate-100 rounded-full border border-slate-200">
+                    <div class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                    <span class="text-xs font-black text-slate-700 uppercase tracking-tighter">Sistem Aktif</span>
+                </div>
+                <button onclick="logoutAdmin()" class="p-2.5 text-slate-400 hover:text-red-600 transition-colors bg-white border border-slate-200 rounded-xl shadow-sm">
+                    <i data-lucide="log-out" class="w-5 h-5"></i>
+                </button>
+            </div>
+        </nav>
+
+        <main class="max-w-7xl mx-auto w-full p-8 space-y-10">
+            <div>
+                <h2 class="text-4xl font-black text-slate-900 mb-2">Selamat Datang, Admin Utama</h2>
+                <p class="text-slate-500 text-lg">Kelola ekosistem aplikasi dan kontrol akses dari satu tempat.</p>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <!-- Q&A Module -->
+                <div class="group bg-white rounded-[2rem] border-2 border-slate-100 p-8 shadow-sm hover:border-[#008248] hover:shadow-xl transition-all cursor-pointer relative overflow-hidden" onclick="showSessionManagement()">
+                    <div class="absolute top-0 right-0 w-32 h-32 bg-green-50 rounded-bl-[5rem] -mr-10 -mt-10"></div>
+                    <div class="relative z-10 space-y-6">
+                        <div class="w-16 h-16 bg-[#008248] rounded-2xl flex items-center justify-center text-white shadow-lg">
+                            <i data-lucide="messages-square" class="w-8 h-8"></i>
+                        </div>
+                        <div>
+                            <h4 class="text-2xl font-black text-slate-900 group-hover:text-[#008248] transition-colors">TanyaAja Q&A</h4>
+                            <p class="text-slate-500 font-medium mt-2 leading-relaxed">Kelola sesi tanya jawab dan moderasi pertanyaan.</p>
+                        </div>
+                        <div class="pt-4 flex items-center justify-between">
+                            <span class="px-4 py-1.5 bg-green-50 text-[#008248] text-xs font-black rounded-full uppercase tracking-widest">Sistem Utama</span>
+                            <div class="w-10 h-10 bg-slate-900 rounded-xl flex items-center justify-center text-white group-hover:translate-x-1 transition-transform">
+                                <i data-lucide="arrow-right" class="w-5 h-5"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Placeholder for other modules -->
+                <div class="group bg-slate-50 border-2 border-dashed border-slate-200 rounded-[2rem] p-8 flex flex-col items-center justify-center text-center space-y-4 hover:bg-white hover:border-slate-300 transition-all cursor-pointer">
+                    <div class="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center text-slate-400 group-hover:scale-110 transition-transform">
+                        <i data-lucide="plus" class="w-8 h-8"></i>
+                    </div>
+                    <div>
+                        <h4 class="text-xl font-black text-slate-400 uppercase tracking-tight">Tambah Modul</h4>
+                        <p class="text-slate-400 text-sm mt-1">Gunakan core logic untuk app baru</p>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
     <!-- Admin Session Management (Image 1) -->
     <div id="session-management-page" class="fixed inset-0 z-[110] bg-[#f8f9fa] flex hidden flex-col overflow-y-auto">
         <nav class="bg-white border-b px-8 h-16 flex items-center justify-between sticky top-0 z-10">
