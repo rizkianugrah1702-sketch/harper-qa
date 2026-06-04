@@ -156,20 +156,18 @@
     <div id="session-management-page" class="fixed inset-0 z-[110] bg-[#f8f9fa] flex hidden flex-col overflow-y-auto">
         <nav class="bg-white border-b px-8 h-16 flex items-center justify-between sticky top-0 z-10">
             <div class="flex items-center gap-6">
-                <h1 class="text-xl font-bold text-slate-900">Slidos</h1>
+                <h1 class="text-xl font-bold text-slate-900">TanyaAja</h1>
                 <div class="flex gap-4">
-                    <button class="px-4 py-2 border-b-2 border-[#008248] text-[#008248] font-bold">All <span class="bg-slate-100 px-2 py-0.5 rounded text-xs ml-1" id="total-sessions-count">0</span></button>
-                    <button class="px-4 py-2 text-slate-500 hover:text-slate-900">Active & upcoming <span class="bg-slate-100 px-2 py-0.5 rounded text-xs ml-1">0</span></button>
-                    <button class="px-4 py-2 text-slate-500 hover:text-slate-900">Past <span class="bg-slate-100 px-2 py-0.5 rounded text-xs ml-1">0</span></button>
+                    <button class="px-4 py-2 border-b-2 border-[#ea580c] text-[#ea580c] font-bold">Semua <span class="bg-slate-100 px-2 py-0.5 rounded text-xs ml-1" id="total-sessions-count">0</span></button>
                 </div>
             </div>
             <div class="flex items-center gap-4">
-                <button onclick="showCreateSessionModal()" class="btn-slido-primary px-6 py-2 flex items-center gap-2">
+                <button onclick="showCreateSessionModal()" class="btn-orange-primary px-6 py-2 flex items-center gap-2">
                     <i data-lucide="plus" class="w-5 h-5"></i>
-                    Create slido
+                    Buat Sesi
                 </button>
-                <button onclick="logoutAdmin()" class="p-2 text-slate-400 hover:text-red-600 transition-colors">
-                    <i data-lucide="log-out" class="w-5 h-5"></i>
+                <button onclick="showMasterDashboard()" class="p-2 text-slate-400 hover:text-slate-900 transition-colors" title="Kembali ke Beranda">
+                    <i data-lucide="home" class="w-5 h-5"></i>
                 </button>
             </div>
         </nav>
@@ -178,21 +176,17 @@
             <div class="flex justify-between items-center gap-4">
                 <div class="relative flex-1">
                     <i data-lucide="search" class="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 w-5 h-5"></i>
-                    <input type="text" placeholder="Search by name, owner, code" class="w-full pl-12 pr-4 py-2.5 bg-white border border-slate-200 rounded-lg outline-none focus:border-[#008248] transition-all">
+                    <input type="text" placeholder="Cari berdasarkan nama atau kode" class="w-full pl-12 pr-4 py-2.5 bg-white border border-slate-200 rounded-lg outline-none focus:border-[#ea580c] transition-all">
                 </div>
-                <select class="px-4 py-2.5 bg-white border border-slate-200 rounded-lg outline-none focus:border-[#008248] transition-all">
-                    <option>All slidos</option>
-                </select>
             </div>
 
             <div class="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
                 <table class="w-full text-left">
                     <thead>
                         <tr class="bg-slate-50 border-b border-slate-200 text-sm font-semibold text-slate-600">
-                            <th class="px-6 py-4 w-12"><input type="checkbox" class="rounded border-slate-300"></th>
-                            <th class="px-6 py-4">Slido details</th>
+                            <th class="px-6 py-4">Detail Sesi</th>
                             <th class="px-6 py-4">Status</th>
-                            <th class="px-6 py-4 text-right">More actions</th>
+                            <th class="px-6 py-4 text-right">Aksi</th>
                         </tr>
                     </thead>
                     <tbody id="admin-sessions-table-body" class="divide-y divide-slate-100">
@@ -200,7 +194,6 @@
                     </tbody>
                 </table>
             </div>
-            <p class="text-sm text-slate-500">Page 1</p>
         </main>
     </div>
 
@@ -208,16 +201,8 @@
     <div id="admin-qa-dashboard" class="fixed inset-0 z-[120] bg-white flex hidden overflow-hidden">
         <!-- Sidebar -->
         <aside class="w-20 border-r border-slate-100 flex flex-col items-center py-6 gap-8 bg-white">
-            <div class="w-10 h-10 bg-[#008248] rounded-xl flex items-center justify-center text-white">
+            <div class="w-10 h-10 bg-[#ea580c] rounded-xl flex items-center justify-center text-white">
                 <i data-lucide="message-square" class="w-6 h-6"></i>
-            </div>
-            <div class="flex flex-col gap-6">
-                <button class="p-3 text-[#008248] bg-[#e6f3ed] rounded-xl"><i data-lucide="file-text" class="w-6 h-6"></i></button>
-                <button class="p-3 text-slate-400 hover:text-slate-600 transition-colors"><i data-lucide="bar-chart-2" class="w-6 h-6"></i></button>
-                <button class="p-3 text-slate-400 hover:text-slate-600 transition-colors"><i data-lucide="settings" class="w-6 h-6"></i></button>
-            </div>
-            <div class="mt-auto">
-                <button class="p-3 text-slate-400 hover:text-slate-600 transition-colors"><i data-lucide="help-circle" class="w-6 h-6"></i></button>
             </div>
         </aside>
 
@@ -230,20 +215,12 @@
                         <i data-lucide="arrow-left" class="w-5 h-5 text-slate-600"></i>
                     </button>
                     <h2 id="active-session-name" class="text-lg font-bold text-slate-900">Sesi Q&A</h2>
-                    <span class="text-sm text-slate-500 flex items-center gap-2">
-                        <i data-lucide="calendar" class="w-4 h-4"></i>
-                        Jun 3 – 5, 2026
-                    </span>
-                    <span id="active-session-code-display" class="text-sm text-slate-500">#1319500</span>
+                    <span id="active-session-code-display" class="text-sm text-slate-500 font-mono">#1319500</span>
                 </div>
                 <div class="flex items-center gap-3">
                     <button onclick="showQRCode()" class="px-4 py-2 border border-slate-200 rounded-lg text-sm font-semibold text-slate-700 hover:bg-slate-50 flex items-center gap-2">
                         <i data-lucide="share-2" class="w-4 h-4"></i>
                         Share
-                    </button>
-                    <button onclick="switchView('presenter')" class="px-4 py-2 bg-[#008248] text-white rounded-lg text-sm font-semibold hover:bg-[#00663a] flex items-center gap-2">
-                        <i data-lucide="play" class="w-4 h-4"></i>
-                        Present
                     </button>
                 </div>
             </header>
@@ -253,22 +230,13 @@
                 <div class="flex-1 flex flex-col bg-white overflow-hidden">
                     <div class="px-8 py-6 border-b border-slate-50 flex items-center justify-between">
                         <h3 class="text-lg font-bold text-slate-900 flex items-center gap-3">
-                            <i data-lucide="messages-square" class="w-6 h-6 text-[#008248]"></i>
+                            <i data-lucide="messages-square" class="w-6 h-6 text-[#ea580c]"></i>
                             Audience Q&A
                         </h3>
-                        <div class="flex items-center gap-4">
-                            <button class="p-2 text-slate-400 hover:text-slate-600"><i data-lucide="search" class="w-5 h-5"></i></button>
-                            <button class="p-2 text-slate-400 hover:text-slate-600"><i data-lucide="archive" class="w-5 h-5"></i></button>
-                            <button class="p-2 text-slate-400 hover:text-slate-600"><i data-lucide="settings" class="w-5 h-5"></i></button>
-                        </div>
                     </div>
                     
                     <div class="px-8 py-4 bg-slate-50/50 flex items-center justify-between">
                         <span class="text-sm font-bold text-slate-500 uppercase tracking-wider">Live <span id="admin-question-count" class="bg-slate-200 px-2 py-0.5 rounded ml-1 text-slate-600">0</span></span>
-                        <button class="text-sm font-semibold text-slate-500 flex items-center gap-2">
-                            <i data-lucide="arrow-down-up" class="w-4 h-4"></i>
-                            Popular
-                        </button>
                     </div>
 
                     <div id="admin-questions-list" class="flex-1 overflow-y-auto p-8 space-y-6 custom-scrollbar">
@@ -276,21 +244,13 @@
                     </div>
 
                     <div class="p-6 border-t border-slate-100 flex items-center justify-between bg-white">
-                        <button class="px-4 py-2 text-red-500 bg-red-50 rounded-lg text-sm font-bold hover:bg-red-100 flex items-center gap-2">
-                            <i data-lucide="lock" class="w-4 h-4"></i>
-                            Close Q&A
-                        </button>
-                        <div class="flex items-center gap-6">
-                            <div class="flex items-center gap-2 text-[#008248]">
+                        <div class="flex items-center gap-6 ml-auto">
+                            <div class="flex items-center gap-2 text-[#ea580c]">
                                 <i data-lucide="message-square" class="w-5 h-5"></i>
                                 <span class="text-sm font-bold">Audience Q&A</span>
-                                <span class="w-2 h-2 bg-[#008248] rounded-full"></span>
+                                <span class="w-2 h-2 bg-[#ea580c] rounded-full"></span>
                                 <span class="text-xs font-bold uppercase">Open</span>
                             </div>
-                            <button onclick="switchView('participant')" class="text-sm font-bold text-slate-500 hover:text-slate-900 flex items-center gap-2">
-                                <i data-lucide="users" class="w-5 h-5"></i>
-                                View as participant
-                            </button>
                         </div>
                     </div>
                 </div>
@@ -300,58 +260,39 @@
 
     <!-- Participant Dark Mode View (Image 3) -->
     <div id="participant-dark-view" class="fixed inset-0 z-[130] participant-dark flex hidden flex-col overflow-hidden">
-        <header class="h-14 border-b border-[#333] px-6 flex items-center justify-between shrink-0">
+        <header class="h-14 border-b border-[#222] px-6 flex items-center justify-between shrink-0 bg-black">
             <div class="flex items-center gap-4">
-                <button onclick="exitEvent()" class="p-2 hover:bg-[#333] rounded-lg">
-                    <i data-lucide="menu" class="w-5 h-5"></i>
-                </button>
-                <h2 id="part-session-name" class="font-bold">bidar</h2>
-            </div>
-            <div class="flex items-center gap-2">
-                <button class="p-2 hover:bg-[#333] rounded-lg">
-                    <i data-lucide="user" class="w-5 h-5"></i>
-                </button>
+                <h2 id="part-session-name" class="font-bold text-white">bidar</h2>
             </div>
         </header>
 
-        <nav class="h-12 border-b border-[#333] flex items-center justify-center gap-8 shrink-0">
-            <button class="h-full px-4 border-b-2 border-white font-bold flex items-center gap-2">
+        <nav class="h-12 border-b border-[#222] flex items-center justify-center gap-8 shrink-0 bg-black">
+            <button class="h-full px-4 border-b-2 border-[#ea580c] text-[#ea580c] font-bold flex items-center gap-2">
                 <i data-lucide="message-square" class="w-4 h-4"></i>
                 Q&A
             </button>
-            <button class="h-full px-4 text-slate-400 font-medium flex items-center gap-2">
-                <i data-lucide="bar-chart" class="w-4 h-4"></i>
-                Polls
-            </button>
         </nav>
 
-        <main class="flex-1 overflow-y-auto p-6 space-y-8 custom-scrollbar">
+        <main class="flex-1 overflow-y-auto p-6 space-y-8 custom-scrollbar bg-black">
             <div class="max-w-2xl mx-auto space-y-6">
                 <!-- Question Input Card -->
-                <div class="bg-[#1e1e1e] rounded-2xl border border-[#333] p-6 space-y-6 shadow-xl">
+                <div class="bg-[#111] rounded-2xl border border-[#222] p-6 space-y-6 shadow-xl">
                     <div class="relative">
-                        <textarea id="part-question-input" rows="3" class="w-full bg-transparent border-none focus:ring-0 text-lg resize-none placeholder:text-slate-500" placeholder="Type your question"></textarea>
-                        <button class="absolute right-0 top-0 p-2 text-slate-500 hover:text-white"><i data-lucide="smile" class="w-5 h-5"></i></button>
-                        <div class="absolute right-0 bottom-0 text-xs text-slate-500">160</div>
+                        <textarea id="part-question-input" rows="3" class="w-full bg-transparent border-none focus:ring-0 text-lg resize-none placeholder:text-slate-500 text-white" placeholder="Tulis pertanyaan Anda..."></textarea>
                     </div>
                     
-                    <div class="pt-4 border-t border-[#333] flex items-center justify-between">
-                        <div class="flex items-center gap-3 bg-[#2a2a2a] px-4 py-2 rounded-xl">
-                            <i data-lucide="user" class="w-5 h-5 text-slate-400"></i>
-                            <input type="text" id="part-user-name" class="bg-transparent border-none focus:ring-0 text-sm w-32" placeholder="Your name (optional)">
-                        </div>
-                        <button onclick="submitQuestion()" class="bg-[#008248] hover:bg-[#00663a] text-white px-8 py-2.5 rounded-full font-bold transition-all active:scale-95">
-                            Send
+                    <div class="pt-4 border-t border-[#222] flex items-center justify-between">
+                        <button onclick="submitQuestion()" class="bg-[#ea580c] hover:bg-[#c2410c] text-white px-8 py-2.5 rounded-full font-bold transition-all active:scale-95 ml-auto">
+                            Kirim
                         </button>
                     </div>
                 </div>
 
                 <div class="flex items-center justify-between">
                     <div class="flex gap-4">
-                        <button class="text-sm font-bold border-b-2 border-[#008248] pb-1">Popular</button>
-                        <button class="text-sm font-bold text-slate-500 hover:text-white pb-1">Recent</button>
+                        <button class="text-sm font-bold border-b-2 border-[#ea580c] pb-1 text-[#ea580c]">Populer</button>
                     </div>
-                    <span id="part-question-count-label" class="text-sm text-slate-500">0 questions</span>
+                    <span id="part-question-count-label" class="text-sm text-slate-500">0 pertanyaan</span>
                 </div>
 
                 <div id="part-questions-list" class="space-y-4">
@@ -359,10 +300,6 @@
                 </div>
             </div>
         </main>
-        
-        <button class="fixed right-6 bottom-6 w-14 h-14 bg-[#008248] text-white rounded-full shadow-2xl flex items-center justify-center hover:scale-110 transition-all">
-            <i data-lucide="plus" class="w-8 h-8"></i>
-        </button>
     </div>
 
     <!-- Admin Login Page -->

@@ -188,23 +188,21 @@ function renderAdminSessions() {
 
     tbody.innerHTML = sessionsList.map(s => `
         <tr class="hover:bg-slate-50 transition-colors cursor-pointer" onclick="showAdminQADashboard('${s.id}')">
-            <td class="px-6 py-4" onclick="event.stopPropagation()"><input type="checkbox" class="rounded border-slate-300"></td>
             <td class="px-6 py-4">
                 <div class="flex flex-col">
                     <span class="font-bold text-slate-900">${escapeHtml(s.name)} <span class="text-slate-400 font-normal ml-1">(#${s.shortCode})</span></span>
-                    <span class="text-xs text-slate-500">Jun 3 – 5, 2026</span>
                 </div>
             </td>
             <td class="px-6 py-4">
-                <div class="flex items-center gap-2 text-[#008248] text-sm font-semibold">
+                <div class="flex items-center gap-2 text-[#ea580c] text-sm font-semibold">
                     <i data-lucide="radio" class="w-4 h-4"></i>
-                    Active now
+                    Aktif
                 </div>
             </td>
             <td class="px-6 py-4 text-right" onclick="event.stopPropagation()">
                 <div class="flex justify-end gap-3">
-                    <button onclick="showQRCode('${s.id}')" class="p-2 text-slate-400 hover:text-[#008248]"><i data-lucide="share-2" class="w-5 h-5"></i></button>
-                    <button onclick="deleteSession('${s.id}')" class="p-2 text-slate-400 hover:text-red-500"><i data-lucide="more-horizontal" class="w-5 h-5"></i></button>
+                    <button onclick="showQRCode('${s.id}')" class="p-2 text-slate-400 hover:text-[#ea580c]"><i data-lucide="share-2" class="w-5 h-5"></i></button>
+                    <button onclick="deleteSession('${s.id}')" class="p-2 text-slate-400 hover:text-red-500"><i data-lucide="trash-2" class="w-5 h-5"></i></button>
                 </div>
             </td>
         </tr>
@@ -299,7 +297,6 @@ function renderAdminQuestions() {
                     <div class="flex items-center gap-1 text-slate-500 font-bold">
                         ${q.upvotes} <i data-lucide="thumbs-up" class="w-5 h-5"></i>
                     </div>
-                    <button class="p-2 text-slate-300 hover:text-slate-600"><i data-lucide="more-horizontal" class="w-5 h-5"></i></button>
                 </div>
             </div>
             
@@ -307,18 +304,18 @@ function renderAdminQuestions() {
                 ${Object.entries(q.reactions).map(([emoji, count]) => `
                     <span class="px-2 py-1 bg-slate-50 rounded-full text-sm border border-slate-100">${emoji} ${count}</span>
                 `).join('')}
-                <button onclick="promptNewReaction(${q.id})" class="p-1 text-slate-400 hover:text-[#008248]"><i data-lucide="smile" class="w-5 h-5"></i></button>
+                <button onclick="promptNewReaction(${q.id})" class="p-1 text-slate-400 hover:text-[#ea580c]"><i data-lucide="smile" class="w-5 h-5"></i></button>
             </div>
 
             <div class="pl-12 space-y-3">
                 ${q.comments.map(c => `
                     <div class="bg-slate-50 p-3 rounded-lg text-sm text-slate-700">
-                        <span class="font-bold text-[#008248]">Host:</span> ${escapeHtml(c.text)}
+                        <span class="font-bold text-[#ea580c]">Host:</span> ${escapeHtml(c.text)}
                     </div>
                 `).join('')}
                 <div class="flex gap-2">
-                    <input type="text" id="comment-input-${q.id}" class="flex-1 bg-slate-50 border-none rounded-lg text-sm px-4 py-2" placeholder="Reply as host...">
-                    <button onclick="submitComment(${q.id})" class="text-[#008248] font-bold text-sm">Reply</button>
+                    <input type="text" id="comment-input-${q.id}" class="flex-1 bg-slate-50 border-none rounded-lg text-sm px-4 py-2" placeholder="Balas sebagai host...">
+                    <button onclick="submitComment(${q.id})" class="text-[#ea580c] font-bold text-sm">Balas</button>
                 </div>
             </div>
         </div>
@@ -331,13 +328,13 @@ function renderPartQuestions() {
     const session = sessions[currentSessionId];
     if (!session) return;
 
-    document.getElementById('part-question-count-label').textContent = `${session.questions.length} questions`;
+    document.getElementById('part-question-count-label').textContent = `${session.questions.length} pertanyaan`;
 
     list.innerHTML = session.questions.map(q => `
-        <div class="bg-[#1e1e1e] border border-[#333] rounded-2xl p-6 space-y-4 shadow-lg">
+        <div class="bg-[#111] border border-[#222] rounded-2xl p-6 space-y-4 shadow-lg">
             <div class="flex justify-between items-start">
                 <div class="flex gap-4">
-                    <div class="w-10 h-10 bg-[#333] rounded-full flex items-center justify-center text-slate-500">
+                    <div class="w-10 h-10 bg-[#222] rounded-full flex items-center justify-center text-slate-500">
                         <i data-lucide="user" class="w-6 h-6"></i>
                     </div>
                     <div>
@@ -345,7 +342,7 @@ function renderPartQuestions() {
                         <p class="text-lg text-slate-200 mt-1">${escapeHtml(q.text)}</p>
                     </div>
                 </div>
-                <button onclick="upvoteQuestion(${q.id})" class="flex items-center gap-2 text-slate-400 hover:text-white transition-colors">
+                <button onclick="upvoteQuestion(${q.id})" class="flex items-center gap-2 text-slate-400 hover:text-[#ea580c] transition-colors">
                     <span class="font-bold">${q.upvotes}</span>
                     <i data-lucide="thumbs-up" class="w-5 h-5"></i>
                 </button>
@@ -353,7 +350,7 @@ function renderPartQuestions() {
 
             <div class="flex gap-2">
                 ${Object.entries(q.reactions).map(([emoji, count]) => `
-                    <button onclick="addReaction(${q.id}, '${emoji}')" class="px-3 py-1 bg-[#2a2a2a] rounded-full text-sm border border-[#444] text-slate-300 hover:border-[#008248] transition-colors">
+                    <button onclick="addReaction(${q.id}, '${emoji}')" class="px-3 py-1 bg-[#1a1a1a] rounded-full text-sm border border-[#333] text-slate-300 hover:border-[#ea580c] transition-colors">
                         ${emoji} ${count}
                     </button>
                 `).join('')}
@@ -362,12 +359,11 @@ function renderPartQuestions() {
 
             <div class="pl-14 space-y-3">
                 ${q.comments.map((c, idx) => `
-                    <div class="bg-[#2a2a2a] p-3 rounded-xl text-sm text-slate-300 border border-[#333]">
-                        <span class="font-bold text-[#008248]">Host:</span> ${escapeHtml(c.text)}
+                    <div class="bg-[#1a1a1a] p-3 rounded-xl text-sm text-slate-300 border border-[#222]">
+                        <span class="font-bold text-[#ea580c]">Host:</span> ${escapeHtml(c.text)}
                         <div class="mt-2 flex gap-2">
-                             <!-- Participant can react to host comments but not reply -->
-                             <button onclick="addReactionToComment(${q.id}, ${idx}, '👍')" class="text-xs text-slate-500 hover:text-white">👍</button>
-                             <button onclick="addReactionToComment(${q.id}, ${idx}, '❤️')" class="text-xs text-slate-500 hover:text-white">❤️</button>
+                             <button onclick="addReactionToComment(${q.id}, ${idx}, '👍')" class="text-xs text-slate-500 hover:text-[#ea580c]">👍</button>
+                             <button onclick="addReactionToComment(${q.id}, ${idx}, '❤️')" class="text-xs text-slate-500 hover:text-[#ea580c]">❤️</button>
                         </div>
                     </div>
                 `).join('')}

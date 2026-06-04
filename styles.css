@@ -41,30 +41,35 @@ body { font-family: 'Plus Jakarta Sans', sans-serif; }
 
 /* Dark Mode Theme for Participant View (Image 3) */
 .participant-dark {
-    background-color: #121212 !important;
+    background-color: #000000 !important;
     color: #ffffff !important;
 }
 .participant-dark .bg-white {
-    background-color: #1e1e1e !important;
-    border-color: #333 !important;
+    background-color: #111111 !important;
+    border-color: #222 !important;
 }
 .participant-dark .text-slate-900 { color: #f8fafc !important; }
 .participant-dark .text-slate-500 { color: #94a3b8 !important; }
 .participant-dark input, .participant-dark textarea {
-    background-color: #2a2a2a !important;
-    border-color: #444 !important;
+    background-color: #1a1a1a !important;
+    border-color: #333 !important;
     color: #fff !important;
 }
-.participant-dark .border-slate-100 { border-color: #333 !important; }
+.participant-dark .border-slate-100 { border-color: #222 !important; }
 
-/* Slido Style Buttons */
-.btn-slido-primary {
-    background-color: #008248;
+/* Orange-White Theme (Global) */
+.btn-orange-primary {
+    background-color: #ea580c;
     color: white;
     border-radius: 8px;
     font-weight: 600;
+    transition: all 0.2s;
 }
-.btn-slido-primary:hover { background-color: #00663a; }
+.btn-orange-primary:hover { background-color: #c2410c; }
+
+.text-orange-primary { color: #ea580c !important; }
+.bg-orange-primary { background-color: #ea580c !important; }
+.border-orange-primary { border-color: #ea580c !important; }
 
 .slido-card {
     background: white;
