@@ -3,375 +3,105 @@ const API_URL = 'https://script.google.com/macros/s/AKfycbwm2pHn9-iSFOVmBDu1skr1
 const SESSION_DURATION = 24 * 60 * 60 * 1000;
 const DEFAULT_SESSION_ID = 'default-session';
 
-// Default users if none exist
-const DEFAULT_USERS = {
-    'administrator': { username: 'administrator', password: 'admin123', role: 'administrator' },
-    'admin': { username: 'admin', password: 'admin123', role: 'admin' }
-};
-
 // --- STATE ---
 let sessions = JSON.parse(localStorage.getItem('qa_sessions')) || {};
-let users = JSON.parse(localStorage.getItem('qa_users')) || DEFAULT_USERS;
-
-// Default modules
-const DEFAULT_MODULES = [
-    {
-        id: 'qa-system',
-        name: 'TanyaAja Q&A',
-        description: 'Sistem internal bawaan aplikasi utama.',
-        type: 'internal',
-        folder: 'Internal',
-        icon: 'message-square',
-        color: 'main-primary',
-        textColor: 'main-text-primary',
-        bgLight: 'bg-slate-50'
-    },
-    {
-        id: 'qa-system-custom',
-        name: 'Custom Q&A',
-        description: 'Modul terpisah dengan tampilan kustom.',
-        type: 'external',
-        folder: '/modules/qa_system',
-        icon: 'layout-template',
-        color: 'bg-blue-600',
-        textColor: 'text-blue-600',
-        bgLight: 'bg-blue-50'
-    }
-];
-let modules = JSON.parse(localStorage.getItem('qa_modules')) || DEFAULT_MODULES;
-
-// Pastikan Administrator Utama selalu ada (Migration)
-if (!users['administrator'] || (users['administrator'].role !== 'administrator' && users['administrator'].role !== 'superadmin')) {
-    users['administrator'] = DEFAULT_USERS['administrator'];
-    localStorage.setItem('qa_users', JSON.stringify(users));
-}
-
 let currentUser = JSON.parse(localStorage.getItem('currentUser')) || null;
+let currentSessionId = getSessionFromUrl() || '';
+let isAdmin = currentUser && (currentUser.role === 'admin' || currentUser.role === 'administrator');
+let activeReactionQuestionId = null;
 
-let currentSessionId = getSessionFromUrl() || DEFAULT_SESSION_ID;
-let currentView = 'participant';
-let isSuperAdmin = currentUser && (currentUser.role === 'administrator' || currentUser.role === 'superadmin');
-let isAdmin = currentUser && (currentUser.role === 'admin' || currentUser.role === 'administrator' || currentUser.role === 'superadmin');
-let isClient = currentUser && currentUser.role === 'client';
+// --- APP INITIALIZATION ---
+document.addEventListener('DOMContentLoaded', () => {
+    initApp();
+});
 
-// --- APP FUNCTIONS ---
-
-function showMasterDashboard() {
-    document.getElementById('master-dashboard').classList.remove('hidden');
-    document.getElementById('admin-auth-page').classList.add('hidden');
-    document.getElementById('landing-page').classList.add('hidden');
-    document.getElementById('main-nav').classList.add('hidden');
-    document.getElementById('sidebar').classList.add('hidden');
-    document.getElementById('sidebar-overlay').classList.add('hidden');
-    
-    // Update stats
-    const userCount = Object.keys(users).length;
-    document.getElementById('master-total-users').textContent = userCount;
-    
-    renderModules();
-    lucide.createIcons();
-}
-
-function renderModules() {
-    const container = document.getElementById('master-modules-container');
-    if (!container) return;
-
-    container.innerHTML = modules.map(m => `
-        <div class="group bg-white rounded-[2rem] border-2 border-slate-100 p-8 shadow-sm hover:border-blue-500 hover:shadow-xl hover:shadow-blue-100/50 transition-all cursor-pointer relative overflow-hidden" onclick="launchApp('${m.id}')">
-            <div class="absolute top-0 right-0 w-32 h-32 ${m.bgLight} rounded-bl-[5rem] -mr-10 -mt-10 group-hover:bg-blue-100 transition-colors"></div>
-            <div class="relative z-10 space-y-6">
-                <div class="flex justify-between items-start">
-                    <div class="w-16 h-16 ${m.color} rounded-2xl flex items-center justify-center text-white shadow-lg">
-                        <i data-lucide="${m.icon}" class="w-8 h-8"></i>
-                    </div>
-                    <div class="flex gap-2">
-                        ${m.id === 'qa-system' ? `
-                            <button onclick="event.stopPropagation(); openModuleSettings('landing')" class="p-3 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl transition-all" title="Settings Halaman Depan">
-                                <i data-lucide="home" class="w-5 h-5"></i>
-                            </button>
-                            <button onclick="event.stopPropagation(); openModuleSettings('login')" class="p-3 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl transition-all" title="Settings Halaman Login">
-                                <i data-lucide="lock" class="w-5 h-5"></i>
-                            </button>
-                        ` : `
-                            <button onclick="event.stopPropagation(); openModuleSettings('${m.id}')" class="p-3 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl transition-all">
-                                <i data-lucide="settings" class="w-5 h-5"></i>
-                            </button>
-                            ${m.type !== 'internal' && m.id !== 'qa-system-custom' ? `
-                                <button onclick="event.stopPropagation(); deleteModule('${m.id}')" class="p-3 bg-red-50 hover:bg-red-100 text-red-500 rounded-xl transition-all">
-                                    <i data-lucide="trash-2" class="w-5 h-5"></i>
-                                </button>
-                            ` : ''}
-                        `}
-                    </div>
-                </div>
-                <div>
-                    <h4 class="text-2xl font-black text-slate-900 group-hover:${m.textColor} transition-colors">${m.name}</h4>
-                    <p class="text-slate-500 font-medium mt-2 leading-relaxed">${m.description}</p>
-                </div>
-                <div class="pt-4 flex items-center justify-between">
-                    <span class="px-4 py-1.5 ${m.bgLight} ${m.textColor} text-xs font-black rounded-full uppercase tracking-widest">
-                        ${m.type === 'internal' ? 'Sistem Utama' : `Folder: ${m.folder}`}
-                    </span>
-                    <div class="w-10 h-10 bg-slate-900 rounded-xl flex items-center justify-center text-white group-hover:translate-x-1 transition-transform">
-                        <i data-lucide="${m.type === 'internal' ? 'arrow-right' : 'external-link'}" class="w-5 h-5"></i>
-                    </div>
-                </div>
-            </div>
-        </div>
-    `).join('') + `
-        <!-- Placeholder for New App -->
-        <div class="group bg-slate-50 border-2 border-dashed border-slate-200 rounded-[2rem] p-8 flex flex-col items-center justify-center text-center space-y-4 hover:bg-white hover:border-slate-300 transition-all cursor-pointer" onclick="showAddModuleModal()">
-            <div class="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center text-slate-400 group-hover:scale-110 transition-transform">
-                <i data-lucide="plus" class="w-8 h-8"></i>
-            </div>
-            <div>
-                <h4 class="text-xl font-black text-slate-400 uppercase tracking-tight">Tambah Modul</h4>
-                <p class="text-slate-400 text-sm mt-1">Gunakan core logic untuk app baru</p>
-            </div>
-        </div>
-    `;
-    lucide.createIcons();
-}
-
-function launchApp(appId) {
-    const module = modules.find(m => m.id === appId);
-    if (!module) return;
-
-    if (module.id === 'qa-system') {
-        document.getElementById('master-dashboard').classList.add('hidden');
-        showMainApp();
-        updateAdminUI();
-    } else if (module.type === 'external') {
-        const path = module.folder.startsWith('/') ? module.folder.substring(1) : module.folder;
-        window.open(`${path}/index.html?app_id=${module.id}`, '_blank');
-    }
-}
-
-function deleteModule(id) {
-     if (!confirm('Hapus modul ini? Data folder tidak akan terhapus secara fisik, hanya dari dashboard.')) return;
-     modules = modules.filter(m => m.id !== id);
-     localStorage.setItem('qa_modules', JSON.stringify(modules));
-     renderModules();
- }
-
- function showAddModuleModal() {
-     document.getElementById('add-module-modal').classList.remove('hidden');
-     lucide.createIcons();
- }
-
- function hideAddModuleModal() {
-     document.getElementById('add-module-modal').classList.add('hidden');
-     document.getElementById('new-module-name').value = '';
-     document.getElementById('new-module-desc').value = '';
-     document.getElementById('new-module-folder').value = '';
- }
-
- function handleFolderSelect(event) {
-     const files = event.target.files;
-     if (files.length > 0) {
-         const fullPath = files[0].webkitRelativePath;
-         const folderName = fullPath.split('/')[0];
-         const suggestedPath = `/modules/${folderName}`;
-         document.getElementById('new-module-folder').value = suggestedPath;
-         const nameInput = document.getElementById('new-module-name');
-         if (!nameInput.value.trim()) {
-             nameInput.value = folderName.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
-         }
-     }
- }
-
- function confirmAddModule() {
-     const name = document.getElementById('new-module-name').value.trim();
-     const desc = document.getElementById('new-module-desc').value.trim();
-     const folder = document.getElementById('new-module-folder').value.trim();
-
-     if (!name || !folder) return alert("Nama dan Folder harus diisi.");
-
-     const id = 'module-' + Date.now();
-     const newModule = {
-         id: id,
-         name: name,
-         description: desc || 'Tidak ada deskripsi.',
-         type: 'external',
-         folder: folder,
-         icon: 'layout-template',
-         color: 'bg-slate-800',
-         textColor: 'text-slate-800',
-         bgLight: 'bg-slate-50'
-     };
-
-     modules.push(newModule);
-     localStorage.setItem('qa_modules', JSON.stringify(modules));
-     hideAddModuleModal();
-     renderModules();
-     alert(`Modul "${name}" berhasil ditambahkan!`);
- }
-
-let currentConfigType = 'custom';
-
-function handleImageUpload(event) {
-    const file = event.target.files[0];
-    if (file) {
-        const reader = new FileReader();
-        reader.onload = function(e) {
-            document.getElementById('config-bg-image').value = e.target.result;
-        };
-        reader.readAsDataURL(file);
-    }
-}
-
-function openModuleSettings(type) {
-    currentConfigType = type || 'custom';
-    const modal = document.getElementById('module-settings-modal');
-    let configKey = 'qa_module_config';
-    let defaultBg = 'https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?q=80&w=2070&auto=format&fit=crop';
-    
-    if (currentConfigType === 'landing') {
-        configKey = 'qa_landing_config';
-    } else if (currentConfigType === 'login') {
-        configKey = 'qa_login_config';
-        defaultBg = 'https://images.unsplash.com/photo-1497366216548-37526070297c?q=80&w=2069&auto=format&fit=crop';
-    } else if (currentConfigType === 'main') {
-        configKey = 'qa_main_config';
-    } else {
-        configKey = `qa_${currentConfigType}_config`;
-    }
-
-    const config = JSON.parse(localStorage.getItem(configKey)) || {
-        primaryColor: (currentConfigType === 'landing' || currentConfigType === 'login' || currentConfigType === 'main') ? '#ea580c' : '#2563eb',
-        bgImage: defaultBg
-    };
-    
-    const modalTitle = document.querySelector('#module-settings-modal h3');
-    if (currentConfigType === 'landing') modalTitle.textContent = 'Kustomisasi Landing Page';
-    else if (currentConfigType === 'login') modalTitle.textContent = 'Kustomisasi Login Admin';
-    else if (currentConfigType === 'main') modalTitle.textContent = 'Kustomisasi Sistem Utama';
-    else modalTitle.textContent = 'Kustomisasi Modul Kustom';
-
-    document.getElementById('config-primary-color').value = config.primaryColor;
-    document.getElementById('config-primary-text').value = config.primaryColor;
-    document.getElementById('config-bg-image').value = config.bgImage;
-    
-    modal.classList.remove('hidden');
-    lucide.createIcons();
-
-    const colorPicker = document.getElementById('config-primary-color');
-    const colorText = document.getElementById('config-primary-text');
-    
-    colorPicker.oninput = (e) => colorText.value = e.target.value.toUpperCase();
-    colorText.oninput = (e) => {
-        if (/^#[0-9A-F]{6}$/i.test(e.target.value)) {
-            colorPicker.value = e.target.value;
+function initApp() {
+    updateAdminUI();
+    if (window.location.hash) {
+        currentSessionId = getSessionFromUrl();
+        if (isAdmin) {
+            showAdminQADashboard(currentSessionId);
+        } else {
+            showParticipantView(currentSessionId);
         }
-    };
-}
-
-function closeModuleSettings() {
-    document.getElementById('module-settings-modal').classList.add('hidden');
-}
-
-function saveModuleSettings() {
-    const primaryColor = document.getElementById('config-primary-color').value;
-    const bgImage = document.getElementById('config-bg-image').value.trim();
-    
-    const r = parseInt(primaryColor.slice(1, 3), 16);
-    const g = parseInt(primaryColor.slice(3, 5), 16);
-    const b = parseInt(primaryColor.slice(5, 7), 16);
-    const primaryHover = `rgb(${Math.max(0, r-20)}, ${Math.max(0, g-20)}, ${Math.max(0, b-20)})`;
-
-    const config = {
-        primaryColor: primaryColor,
-        primaryHover: primaryHover,
-        logoUrl: (currentConfigType === 'landing' || currentConfigType === 'login' || currentConfigType === 'main') ? 'assets/img/logo.png' : '../../assets/img/logo.png',
-        bgImage: bgImage
-    };
-    
-    let configKey = 'qa_module_config';
-    if (currentConfigType === 'landing') configKey = 'qa_landing_config';
-    else if (currentConfigType === 'login') configKey = 'qa_login_config';
-    else if (currentConfigType === 'main') configKey = 'qa_main_config';
-
-    localStorage.setItem(configKey, JSON.stringify(config));
-    
-    if (currentConfigType === 'landing' || currentConfigType === 'main') {
-        applyLandingConfig();
+    } else {
+        if (isAdmin) {
+            showSessionManagement();
+        } else {
+            showLandingPage();
+        }
     }
-    if (currentConfigType === 'login' || currentConfigType === 'main') {
-        applyLoginConfig();
-    }
-    
-    alert('Pengaturan berhasil disimpan!');
-    closeModuleSettings();
+    lucide.createIcons();
 }
 
-function applyLandingConfig() {
-    const config = JSON.parse(localStorage.getItem('qa_landing_config')) || JSON.parse(localStorage.getItem('qa_main_config'));
-    if (config) {
-        document.documentElement.style.setProperty('--main-primary', config.primaryColor);
-        document.documentElement.style.setProperty('--main-hover', config.primaryHover);
-        document.documentElement.style.setProperty('--landing-bg', `url(${config.bgImage})`);
-    }
-}
+// --- NAVIGATION & VIEWS ---
 
-function applyLoginConfig() {
-    const config = JSON.parse(localStorage.getItem('qa_login_config')) || JSON.parse(localStorage.getItem('qa_main_config'));
-    if (config) {
-        document.documentElement.style.setProperty('--login-bg', `url(${config.bgImage})`);
-    }
-}
-
-let qrModalSessionId = null;
-
-if (Object.keys(sessions).length === 0) {
-    sessions[DEFAULT_SESSION_ID] = {
-        id: DEFAULT_SESSION_ID,
-        name: 'Sesi Utama',
-        questions: [],
-        startTime: Date.now().toString()
-    };
-    saveSessions();
+function showLandingPage() {
+    hideAllPages();
+    document.getElementById('landing-page').classList.remove('hidden');
+    lucide.createIcons();
 }
 
 function showAdminAuthPage() {
-    document.getElementById('landing-page').classList.add('hidden');
+    hideAllPages();
     document.getElementById('admin-auth-page').classList.remove('hidden');
     lucide.createIcons();
 }
 
 function hideAdminAuthPage() {
-    document.getElementById('admin-auth-page').classList.add('hidden');
-    document.getElementById('landing-page').classList.remove('hidden');
+    showLandingPage();
 }
 
-function showLandingPage() {
-    document.getElementById('landing-page').classList.remove('hidden');
-    document.getElementById('admin-auth-page').classList.add('hidden');
-    document.getElementById('thank-you-page').classList.add('hidden');
-    document.getElementById('main-nav').classList.add('hidden');
-    document.getElementById('main-content').classList.add('hidden');
-    document.getElementById('sidebar').classList.add('-translate-x-full');
-    document.getElementById('sidebar-overlay').classList.add('hidden');
-    updateAdminUI(); 
+function showSessionManagement() {
+    if (!isAdmin) return showLandingPage();
+    hideAllPages();
+    document.getElementById('session-management-page').classList.remove('hidden');
+    renderAdminSessions();
+    lucide.createIcons();
 }
 
-function showMainApp() {
-    document.getElementById('landing-page').classList.add('hidden');
-    document.getElementById('admin-auth-page').classList.add('hidden');
-    document.getElementById('thank-you-page').classList.add('hidden');
-    document.getElementById('main-nav').classList.remove('hidden');
-    document.getElementById('main-content').classList.remove('hidden');
-    renderAll();
+function showAdminQADashboard(sessionId) {
+    if (!isAdmin) return showParticipantView(sessionId);
+    hideAllPages();
+    currentSessionId = sessionId;
+    const session = sessions[sessionId];
+    if (session) {
+        document.getElementById('active-session-name').textContent = session.name;
+        document.getElementById('active-session-code-display').textContent = `#${session.shortCode || sessionId}`;
+    }
+    document.getElementById('admin-qa-dashboard').classList.remove('hidden');
+    fetchQuestionsFromServer();
+    lucide.createIcons();
+}
+
+function showParticipantView(sessionId) {
+    hideAllPages();
+    currentSessionId = sessionId;
+    const session = sessions[sessionId];
+    if (session) {
+        document.getElementById('part-session-name').textContent = session.name;
+    }
+    document.getElementById('participant-dark-view').classList.remove('hidden');
+    fetchQuestionsFromServer();
+    lucide.createIcons();
+}
+
+function hideAllPages() {
+    const pages = ['landing-page', 'session-management-page', 'admin-qa-dashboard', 'participant-dark-view', 'admin-auth-page'];
+    pages.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.classList.add('hidden');
+    });
 }
 
 function exitEvent() {
     if (confirm("Apakah Anda yakin ingin keluar dari sesi ini?")) {
-        document.getElementById('main-nav').classList.add('hidden');
-        document.getElementById('main-content').classList.add('hidden');
-        document.getElementById('thank-you-page').classList.remove('hidden');
-        window.location.hash = ''; 
-        lucide.createIcons();
+        window.location.hash = '';
+        showLandingPage();
     }
 }
+
+// --- AUTH ---
 
 async function loginAdminFromPage() {
     const user = document.getElementById('admin-page-username').value.trim();
@@ -384,60 +114,21 @@ async function loginAdminFromPage() {
     btn.disabled = true;
 
     try {
-        const params = new URLSearchParams({
-            action: 'login_admin',
-            username: user,
-            password: pass
-        });
-
-        const url = `${API_URL}?${params.toString()}`;
-        console.log("Mencoba login ke:", url);
-        
-        // Menambahkan mode: 'cors' dan cache: 'no-cache' untuk stabilitas
-        const response = await fetch(url, {
-            method: 'GET',
-            mode: 'cors',
-            cache: 'no-cache',
-            redirect: 'follow'
-        });
-
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-
-        const text = await response.text();
-        console.log("Respon mentah dari GAS:", text);
-
-        let result;
-        try {
-            result = JSON.parse(text);
-        } catch (e) {
-            console.error("Gagal mengurai JSON:", e);
-            // Jika respon diawali dengan <!DOCTYPE html>, berarti GAS mengirimkan halaman error HTML
-            if (text.trim().startsWith("<!DOCTYPE")) {
-                throw new Error("GAS mengembalikan halaman HTML/Error. Periksa kode 'Kode.gs' Anda.");
-            }
-            throw new Error("Respon bukan JSON valid.");
-        }
+        const params = new URLSearchParams({ action: 'login_admin', username: user, password: pass });
+        const response = await fetch(`${API_URL}?${params.toString()}`);
+        const result = await response.json();
 
         if (result.status === "success") {
             currentUser = { username: user, role: result.role };
-            isSuperAdmin = true;
             isAdmin = true;
             localStorage.setItem('currentUser', JSON.stringify(currentUser));
-            showMainApp();
-            updateAdminUI();
-            alert("Selamat Datang, Admin!");
+            showSessionManagement();
         } else {
             alert(result.message || "Login Gagal!");
         }
     } catch (error) {
         console.error("Login error:", error);
-        let errorMsg = "Terjadi kesalahan koneksi ke server.";
-        if (error.message.includes("JSON")) {
-            errorMsg = "Server tidak mengembalikan data yang benar. Kemungkinan ada error di kode Google Apps Script Anda.";
-        }
-        alert(`Koneksi Gagal!\n\n${errorMsg}\n\nTips:\n1. Pastikan GAS di-Deploy sebagai 'Anyone'.\n2. Gunakan 'New Version' saat update Deployment.\n3. Periksa Console Log (F12) untuk detail error.`);
+        alert("Koneksi gagal ke server Google.");
     } finally {
         btn.innerHTML = 'Masuk Sekarang';
         btn.disabled = false;
@@ -447,14 +138,10 @@ async function loginAdminFromPage() {
 function logoutAdmin() {
     if (confirm("Logout dari akun ini?")) {
         currentUser = null;
-        isSuperAdmin = false;
         isAdmin = false;
-        isClient = false;
         localStorage.removeItem('currentUser');
         window.location.hash = '';
-        document.getElementById('master-dashboard').classList.add('hidden');
         showLandingPage();
-        updateAdminUI();
     }
 }
 
@@ -463,205 +150,54 @@ async function joinSessionByCode() {
     if (!code) return;
     
     const btn = document.querySelector('button[onclick="joinSessionByCode()"]');
-    const originalText = btn.innerHTML;
     btn.innerHTML = '...';
 
     try {
-        const url = `${API_URL}?action=join_session&code=${code}`;
-        console.log("Mencoba gabung ke sesi:", url);
-        
-        const response = await fetch(url);
-        const text = await response.text();
-        console.log("Respon mentah join_session:", text);
-
-        let result;
-        try {
-            result = JSON.parse(text);
-        } catch (e) {
-            console.error("Gagal mengurai JSON join_session:", e);
-            throw new Error("Respon bukan JSON valid.");
-        }
+        const response = await fetch(`${API_URL}?action=join_session&code=${code}`);
+        const result = await response.json();
 
         if (result.status === 'success') {
-            if (!sessions[code]) {
-                sessions[code] = {
-                    id: code,
-                    shortCode: code,
-                    name: result.session_name,
-                    questions: [],
-                    startTime: Date.now().toString()
-                };
-            }
+            sessions[code] = { id: code, shortCode: code, name: result.session_name, questions: [] };
+            saveSessions();
             currentSessionId = code;
             window.location.hash = code;
-            document.getElementById('join-session-code').value = '';
-            showMainApp();
+            showParticipantView(code);
         } else {
             alert(result.message);
         }
     } catch (error) {
-        console.error("Join error:", error);
         alert("Gagal terhubung ke server.");
     } finally {
-        btn.innerHTML = originalText;
+        btn.innerHTML = 'Gabung Sesi';
     }
 }
 
-function updateAdminUI() {
-    applyLandingConfig();
-    applyLoginConfig();
-    const landingPage = document.getElementById('landing-page');
-    const mainNav = document.getElementById('main-nav');
-    const mainContent = document.getElementById('main-content');
-    const badge = document.getElementById('admin-badge');
-    const createContainer = document.getElementById('admin-create-container');
-    const participantInfo = document.getElementById('participant-info');
-    const sidebarToggle = document.querySelector('button[onclick="toggleSidebar()"]');
-    const sidebar = document.getElementById('sidebar');
-    const navPdfBtn = document.getElementById('nav-download-pdf');
-    const navExitBtn = document.getElementById('nav-exit-btn');
+// --- SESSION MANAGEMENT ---
 
-    if (window.location.hash) {
-        if (navPdfBtn) navPdfBtn.classList.remove('hidden');
-        if (navExitBtn) navExitBtn.classList.remove('hidden');
-    } else {
-        if (navPdfBtn) navPdfBtn.classList.add('hidden');
-        if (navExitBtn) navExitBtn.classList.add('hidden');
-    }
+function renderAdminSessions() {
+    const tbody = document.getElementById('admin-sessions-table-body');
+    const sessionsList = Object.values(sessions);
+    document.getElementById('total-sessions-count').textContent = sessionsList.length;
 
-    if (window.location.hash || isAdmin || isClient) {
-        landingPage.classList.add('hidden');
-        document.getElementById('admin-auth-page').classList.add('hidden');
-        document.getElementById('thank-you-page').classList.add('hidden');
-        mainNav.classList.remove('hidden');
-        mainContent.classList.remove('hidden');
-    } else {
-        landingPage.classList.remove('hidden');
-        document.getElementById('admin-auth-page').classList.add('hidden');
-        mainNav.classList.add('hidden');
-        mainContent.classList.add('hidden');
-    }
-
-    if (isAdmin || isClient) {
-        badge.classList.remove('hidden');
-        
-        let roleLabel = 'CLIENT';
-        let roleIcon = 'eye';
-        let roleColor = 'text-blue-400';
-        
-        if (isSuperAdmin) {
-            roleLabel = 'ADMINISTRATOR';
-            roleIcon = 'shield-check';
-            roleColor = 'main-text-primary';
-        } else if (isAdmin) {
-            roleLabel = 'ADMIN';
-            roleIcon = 'user-check';
-            roleColor = 'text-green-400';
-        }
-
-        badge.innerHTML = `
-            <i data-lucide="${roleIcon}" class="w-3.5 h-3.5 ${roleColor}"></i>
-            ${roleLabel}
-            <div class="flex items-center gap-1.5 ml-1 pl-1.5 border-l border-slate-700">
-                ${isSuperAdmin ? `
-                    <button onclick="showCreateUserModal()" class="hover:main-text-primary transition-colors" title="Create User">
-                        <i data-lucide="user-plus" class="w-3.5 h-3.5"></i>
-                    </button>
-                ` : ''}
-                <button onclick="logoutAdmin()" class="hover:text-red-400 transition-colors" title="Logout">
-                    <i data-lucide="log-out" class="w-3.5 h-3.5"></i>
-                </button>
-            </div>
-        `;
-        lucide.createIcons();
-        
-        if (isAdmin) {
-            createContainer.classList.remove('hidden');
-            participantInfo.classList.add('hidden');
-        } else {
-            createContainer.classList.add('hidden');
-            participantInfo.classList.remove('hidden');
-            participantInfo.innerHTML = '<p class="text-xs text-blue-500 font-bold uppercase tracking-wider">Mode Viewers (Client)</p>';
-        }
-        
-        if (sidebarToggle) sidebarToggle.classList.remove('hidden');
-        sidebar.classList.remove('hidden');
-    } else {
-        badge.classList.add('hidden');
-        createContainer.classList.add('hidden');
-        participantInfo.classList.remove('hidden');
-        participantInfo.innerHTML = '<p class="text-xs text-gray-400">Pilih sesi yang tersedia di bawah untuk bergabung.</p>';
-        if (sidebarToggle) sidebarToggle.classList.add('hidden');
-        sidebar.classList.add('hidden');
-    }
-}
-
-function getSessionFromUrl() { return window.location.hash.substring(1); }
-function saveSessions() { localStorage.setItem('qa_sessions', JSON.stringify(sessions)); }
-function getCurrentSession() { 
-    return sessions[currentSessionId] || sessions[DEFAULT_SESSION_ID] || Object.values(sessions)[0] || null; 
-}
-
-function checkSessions() {
-    const now = Date.now();
-    let changed = false;
-    Object.keys(sessions).forEach(id => {
-        const session = sessions[id];
-        if ((now - parseInt(session.startTime)) > SESSION_DURATION) {
-            session.questions = [];
-            session.startTime = now.toString(); 
-            changed = true;
-        }
-    });
-    if (changed) { 
-        saveSessions(); 
-        if (typeof renderAll === 'function') renderAll(); 
-    }
-}
-
-function showCreateUserModal() {
-    if (!isSuperAdmin) return alert("Hanya Administrator Utama yang bisa mengelola user.");
-    document.getElementById('create-user-modal').classList.remove('hidden');
-    renderUserList();
-    lucide.createIcons();
-}
-
-function hideCreateUserModal() {
-    document.getElementById('create-user-modal').classList.add('hidden');
-    document.getElementById('new-user-username').value = '';
-    document.getElementById('new-user-password').value = '';
-}
-
-function renderUserList() {
-    const tbody = document.getElementById('user-list-table-body');
-    tbody.innerHTML = Object.values(users).map(u => `
-        <tr class="hover:bg-slate-50 transition-colors">
-            <td class="py-4 px-2">
-                <div class="flex items-center gap-2">
-                    <div class="w-8 h-8 rounded-full main-primary flex items-center justify-center text-white text-xs font-bold">
-                        ${u.username.charAt(0).toUpperCase()}
-                    </div>
-                    <span class="font-medium text-slate-700">${u.username}</span>
+    tbody.innerHTML = sessionsList.map(s => `
+        <tr class="hover:bg-slate-50 transition-colors cursor-pointer" onclick="showAdminQADashboard('${s.id}')">
+            <td class="px-6 py-4" onclick="event.stopPropagation()"><input type="checkbox" class="rounded border-slate-300"></td>
+            <td class="px-6 py-4">
+                <div class="flex flex-col">
+                    <span class="font-bold text-slate-900">${escapeHtml(s.name)} <span class="text-slate-400 font-normal ml-1">(#${s.shortCode})</span></span>
+                    <span class="text-xs text-slate-500">Jun 3 – 5, 2026</span>
                 </div>
             </td>
-            <td class="py-4 px-2">
-                <span class="px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider ${
-                    u.role === 'administrator' || u.role === 'superadmin' ? 'bg-red-100 text-red-600' : 
-                    (u.role === 'admin' ? 'bg-blue-100 text-blue-600' : 'bg-slate-100 text-slate-600')
-                }">
-                    ${u.role}
-                </span>
+            <td class="px-6 py-4">
+                <div class="flex items-center gap-2 text-[#008248] text-sm font-semibold">
+                    <i data-lucide="radio" class="w-4 h-4"></i>
+                    Active now
+                </div>
             </td>
-            <td class="py-4 px-2 text-right">
-                <div class="flex items-center justify-end gap-1">
-                    <button onclick="showEditPasswordModal('${u.username}')" class="p-2 text-slate-300 hover:main-text-primary transition-colors" title="Edit Password">
-                        <i data-lucide="key-round" class="w-4 h-4"></i>
-                    </button>
-                    ${u.username !== 'administrator' ? `
-                        <button onclick="deleteUser('${u.username}')" class="p-2 text-slate-300 hover:text-red-500 transition-colors" title="Hapus User">
-                            <i data-lucide="trash-2" class="w-4 h-4"></i>
-                        </button>
-                    ` : '<span class="text-[10px] text-slate-300 font-bold italic pr-2">System</span>'}
+            <td class="px-6 py-4 text-right" onclick="event.stopPropagation()">
+                <div class="flex justify-end gap-3">
+                    <button onclick="showQRCode('${s.id}')" class="p-2 text-slate-400 hover:text-[#008248]"><i data-lucide="share-2" class="w-5 h-5"></i></button>
+                    <button onclick="deleteSession('${s.id}')" class="p-2 text-slate-400 hover:text-red-500"><i data-lucide="more-horizontal" class="w-5 h-5"></i></button>
                 </div>
             </td>
         </tr>
@@ -669,76 +205,8 @@ function renderUserList() {
     lucide.createIcons();
 }
 
-function confirmCreateUser() {
-    if (!isSuperAdmin) return alert("Akses ditolak.");
-    const user = document.getElementById('new-user-username').value.trim();
-    const pass = document.getElementById('new-user-password').value.trim();
-    const role = document.getElementById('new-user-role').value;
-
-    if (!user || !pass) return alert("Username dan Password harus diisi.");
-    if (users[user]) return alert("Username sudah digunakan.");
-
-    users[user] = { username: user, password: pass, role: role };
-    localStorage.setItem('qa_users', JSON.stringify(users));
-    
-    alert(`User ${user} berhasil dibuat sebagai ${role}.`);
-    
-    document.getElementById('new-user-username').value = '';
-    document.getElementById('new-user-password').value = '';
-    
-    renderUserList();
-}
-
-function deleteUser(username) {
-    if (!isSuperAdmin) return;
-    if (username === 'administrator') return alert('Tidak bisa menghapus Super Admin!');
-    if (!confirm(`Hapus user "${username}"?`)) return;
-
-    delete users[username];
-    localStorage.setItem('qa_users', JSON.stringify(users));
-    renderUserList();
-}
-
-let editingUsername = null;
-function showEditPasswordModal(username) {
-    editingUsername = username;
-    document.getElementById('edit-password-username').textContent = username;
-    document.getElementById('edit-password-modal').classList.remove('hidden');
-    document.getElementById('edit-user-new-password').focus();
-}
-
-function hideEditPasswordModal() {
-    editingUsername = null;
-    document.getElementById('edit-password-modal').classList.add('hidden');
-    document.getElementById('edit-user-new-password').value = '';
-}
-
-function confirmEditPassword() {
-    const newPass = document.getElementById('edit-user-new-password').value.trim();
-    if (!newPass) return alert('Password baru tidak boleh kosong!');
-    
-    if (users[editingUsername]) {
-        users[editingUsername].password = newPass;
-        localStorage.setItem('qa_users', JSON.stringify(users));
-        
-        if (currentUser && currentUser.username === editingUsername) {
-            currentUser.password = newPass;
-            localStorage.setItem('currentUser', JSON.stringify(currentUser));
-        }
-        
-        alert(`Password untuk "${editingUsername}" berhasil diperbarui!`);
-        hideEditPasswordModal();
-        renderUserList();
-    }
-}
-
-function createNewSession() {
-    if (!isAdmin) return alert("Hanya admin yang bisa membuat sesi.");
-    const input = document.getElementById('new-session-name');
-    input.value = `Sesi ${Object.keys(sessions).length + 1}`;
+function showCreateSessionModal() {
     document.getElementById('create-session-modal').classList.remove('hidden');
-    input.focus();
-    input.select();
 }
 
 function hideCreateSessionModal() {
@@ -746,439 +214,235 @@ function hideCreateSessionModal() {
 }
 
 async function confirmCreateSession() {
-    const input = document.getElementById('new-session-name');
-    const name = input.value.trim();
-    if (!name) return alert("Nama sesi tidak boleh kosong.");
-
+    const name = document.getElementById('new-session-name').value.trim();
+    if (!name) return alert("Nama sesi harus diisi.");
+    
     const code = Math.random().toString(36).substring(2, 8).toUpperCase();
-    
     try {
-        const params = new URLSearchParams({
-            action: 'create_session',
-            code: code,
-            name: name
-        });
-        
-        await fetch(`${API_URL}?${params.toString()}`);
-
-        sessions[code] = {
-            id: code,
-            shortCode: code,
-            name: name,
-            questions: [],
-            startTime: Date.now().toString()
-        };
+        await fetch(`${API_URL}?action=create_session&code=${code}&name=${name}`);
+        sessions[code] = { id: code, shortCode: code, name: name, questions: [] };
         saveSessions();
-        
-        currentSessionId = code;
-        window.location.hash = code;
-        
         hideCreateSessionModal();
-        if (window.innerWidth < 1024) toggleSidebar();
-        
-        setTimeout(() => {
-            showQRCode(code);
-            renderAll();
-        }, 100);
-
-        addLog(`Sesi "${name}" berhasil dibuat dengan kode: ${code}`, 'success');
-    } catch (error) {
-        console.error("Create session error:", error);
-        alert("Gagal membuat sesi di server.");
+        renderAdminSessions();
+    } catch (e) {
+        alert("Gagal membuat sesi.");
     }
 }
 
-function switchSession(id) {
-    window.location.hash = id;
-    if (window.innerWidth < 1024) toggleSidebar();
+function deleteSession(id) {
+    if (confirm("Hapus sesi ini?")) {
+        delete sessions[id];
+        saveSessions();
+        renderAdminSessions();
+    }
 }
 
-function deleteSession(id, event) {
-    event.stopPropagation();
-    if (!isAdmin && !isSuperAdmin) return alert("Hanya Administrator yang dapat menghapus sesi.");
-    if (!confirm("Hapus sesi ini beserta semua pertanyaannya?")) return;
-    
-    delete sessions[id];
-    saveSessions();
-    
-    const remainingIds = Object.keys(sessions);
-    if (currentSessionId === id) {
-        if (remainingIds.length > 0) {
-            window.location.hash = remainingIds[0];
-        } else {
-            window.location.hash = ''; 
-            updateAdminUI();
+// --- Q&A LOGIC ---
+
+async function fetchQuestionsFromServer() {
+    if (!currentSessionId) return;
+    try {
+        const response = await fetch(`${API_URL}?action=get_questions&code=${currentSessionId}`);
+        const questions = await response.json();
+        if (Array.isArray(questions)) {
+            sessions[currentSessionId].questions = questions.map((q, idx) => ({
+                id: q.id || idx,
+                text: q.content,
+                upvotes: q.votes || 0,
+                timestamp: q.time,
+                isAnswered: q.isAnswered || false,
+                comments: q.comments ? (typeof q.comments === 'string' ? JSON.parse(q.comments) : q.comments) : [],
+                reactions: q.reactions ? (typeof q.reactions === 'string' ? JSON.parse(q.reactions) : q.reactions) : {}
+            }));
+            renderQuestions();
         }
-    } else {
-        renderSessionsList();
+    } catch (e) {
+        console.error("Fetch error:", e);
     }
-}
-
-function deleteQuestion(qId) {
-    if (!isAdmin) return;
-    if (!confirm("Hapus pertanyaan ini?")) return;
-    const session = getCurrentSession();
-    if (!session) return;
-    session.questions = session.questions.filter(q => q.id !== qId);
-    saveSessions();
-    renderQuestions();
-}
-
-function toggleSidebar() {
-    const sidebar = document.getElementById('sidebar');
-    const overlay = document.getElementById('sidebar-overlay');
-    const isHidden = sidebar.classList.contains('-translate-x-full');
-    if (isHidden) { sidebar.classList.remove('-translate-x-full'); overlay.classList.remove('hidden'); }
-    else { sidebar.classList.add('-translate-x-full'); overlay.classList.add('hidden'); }
-}
-
-function switchView(view) {
-    currentView = view;
-    const pView = document.getElementById('participant-view');
-    const presView = document.getElementById('presenter-view');
-    const btnP = document.getElementById('btn-participant');
-    const btnPres = document.getElementById('btn-presenter');
-
-    if (view === 'participant') {
-        pView.classList.remove('hidden'); presView.classList.add('hidden');
-        btnP.classList.add('bg-white', 'shadow-sm', 'main-text-primary'); btnP.classList.remove('text-gray-600');
-        btnPres.classList.remove('bg-white', 'shadow-sm', 'main-text-primary'); btnPres.classList.add('text-gray-600');
-    } else {
-        pView.classList.add('hidden'); presView.classList.remove('hidden');
-        btnPres.classList.add('bg-white', 'shadow-sm', 'main-text-primary'); btnPres.classList.remove('text-gray-600');
-        btnP.classList.remove('bg-white', 'shadow-sm', 'main-text-primary'); btnP.classList.add('text-gray-600');
-    }
-    renderQuestions();
-}
-
-function renderSessionsList() {
-    if (!isAdmin && !isClient) return; 
-    const list = document.getElementById('sessions-list');
-    list.innerHTML = Object.keys(sessions).map(id => {
-        const s = sessions[id];
-        const isActive = id === currentSessionId;
-        const Tag = isActive ? 'div' : 'button';
-        const onclick = isActive ? '' : `onclick="switchSession('${id}')"`;
-        
-        return `
-            <div class="group relative">
-                <${Tag} ${onclick} class="w-full flex items-center justify-between p-3 rounded-xl transition-all ${isActive ? 'main-bg-light main-text-primary' : 'hover:bg-gray-50 text-gray-600 cursor-pointer text-left'}">
-                    <div class="flex items-center gap-3 overflow-hidden pr-24">
-                        <i data-lucide="${isActive ? 'play-circle' : 'circle'}" class="w-4 h-4 shrink-0 ${isActive ? 'main-text-primary' : 'text-gray-300'}"></i>
-                        <div class="flex flex-col overflow-hidden">
-                            <span class="font-bold truncate text-sm">${escapeHtml(s.name)}</span>
-                            <span class="text-[10px] opacity-60 font-mono tracking-tighter">CODE: ${s.shortCode || 'N/A'}</span>
-                        </div>
-                    </div>
-                </${Tag}>
-                <div class="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
-                    ${(isAdmin || isClient) ? `
-                        ${isActive ? `
-                            <button onclick="downloadQuestionsPDF()" class="p-1.5 text-slate-400 hover:main-text-primary transition-colors" title="Download Report">
-                                <i data-lucide="file-text" class="w-3.5 h-3.5"></i>
-                            </button>
-                        ` : ''}
-                        <button onclick="copySessionLink('${id}')" class="px-2 py-1 text-[9px] font-black bg-slate-100 text-slate-600 rounded shadow-sm hover:bg-slate-200 transition-all uppercase tracking-tighter flex items-center gap-1">
-                            <i data-lucide="link" class="w-2.5 h-2.5"></i>
-                            Salin
-                        </button>
-                        <button onclick="showQRCode('${id}')" class="px-2 py-1 text-[9px] font-black main-primary text-white rounded shadow-sm opacity-90 hover:opacity-100 transition-all uppercase tracking-tighter">
-                            QR
-                        </button>
-                    ` : ''}
-                    ${(isAdmin || isSuperAdmin) ? `
-                        <button onclick="deleteSession('${id}', event)" class="p-1 hover:text-red-500 transition-all" title="Hapus Sesi">
-                            <i data-lucide="trash-2" class="w-4 h-4"></i>
-                        </button>
-                    ` : ''}
-                </div>
-            </div>
-        `;
-    }).join('');
-    lucide.createIcons();
 }
 
 function renderQuestions() {
-    const session = getCurrentSession();
-    const list = document.getElementById('questions-list');
-    const presList = document.getElementById('presenter-questions');
-    const countLabel = document.getElementById('question-count');
-    const sessionNameElem = document.getElementById('current-session-name');
-
-    if (!session) {
-        if (sessionNameElem) sessionNameElem.textContent = 'Tidak ada sesi aktif';
-        if (list) list.innerHTML = '<div class="text-center py-12 text-gray-400">Pilih atau buat sesi baru untuk melihat pertanyaan.</div>';
-        if (presList) presList.innerHTML = '<div class="text-center py-12 text-gray-400">Pilih atau buat sesi baru.</div>';
-        if (countLabel) countLabel.textContent = '0 Pertanyaan';
-        
-        const headerCodeSpan = document.getElementById('header-session-code');
-        if (headerCodeSpan) headerCodeSpan.textContent = 'CODE: N/A';
-        return;
+    if (isAdmin) {
+        renderAdminQuestions();
+    } else {
+        renderPartQuestions();
     }
-    
-    if (sessionNameElem) sessionNameElem.textContent = session.name;
-    
-    const headerCodeSpan = document.getElementById('header-session-code');
-    if (headerCodeSpan) {
-        headerCodeSpan.textContent = `CODE: ${session.shortCode || currentSessionId.split('-').pop()}`;
-    }
-    const sorted = [...session.questions].sort((a, b) => b.upvotes - a.upvotes);
-    countLabel.textContent = `${session.questions.length} Pertanyaan`;
+}
 
-    list.innerHTML = sorted.length === 0 
-        ? `<div class="text-center py-12 text-gray-400">Belum ada pertanyaan di sesi ini.</div>`
-        : sorted.map(q => {
-            const comments = q.comments || [];
-            const reactions = q.reactions || {};
-            return `
-            <div class="question-card bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden ${q.isAnswered ? 'opacity-80 bg-gray-50' : ''}">
-                <div class="p-5 flex gap-4 items-start">
-                    <div class="flex flex-col items-center gap-1">
-                        <button onclick="upvoteQuestion(${q.id})" class="p-2 hover:bg-slate-50 rounded-lg main-text-primary transition-colors group">
-                            <i data-lucide="chevron-up" class="w-6 h-6 group-hover:-translate-y-1 transition-transform"></i>
-                        </button>
-                        <span class="font-bold main-text-primary">${q.upvotes}</span>
+function renderAdminQuestions() {
+    const list = document.getElementById('admin-questions-list');
+    const session = sessions[currentSessionId];
+    if (!session) return;
+    
+    document.getElementById('admin-question-count').textContent = session.questions.length;
+    
+    list.innerHTML = session.questions.map(q => `
+        <div class="bg-white border border-slate-100 rounded-xl p-6 shadow-sm space-y-4">
+            <div class="flex justify-between items-start">
+                <div class="flex gap-3">
+                    <div class="w-10 h-10 bg-slate-100 rounded-full flex items-center justify-center text-slate-400">
+                        <i data-lucide="user" class="w-6 h-6"></i>
                     </div>
-                    <div class="flex-1">
-                        <div class="flex justify-between items-start">
-                            <p class="text-gray-800 leading-relaxed mb-2 font-bold uppercase text-2xl">${escapeHtml(q.text)}</p>
-                            ${isAdmin ? `<button onclick="deleteQuestion(${q.id})" class="text-gray-300 hover:text-red-500 p-1"><i data-lucide="trash-2" class="w-4 h-4"></i></button>` : ''}
-                        </div>
-                        <div class="flex flex-wrap items-center gap-4 text-xs text-gray-400">
-                            <span class="flex items-center gap-1"><i data-lucide="clock" class="w-3 h-3"></i> ${formatTime(q.timestamp)}</span>
-                            ${q.isAnswered ? '<span class="text-green-600 font-bold flex items-center gap-1"><i data-lucide="check-circle" class="w-3 h-3"></i> TERJAWAB</span>' : ''}
-                            <button onclick="toggleComments(${q.id})" class="flex items-center gap-2 hover:opacity-80 transition-colors font-black uppercase tracking-wider main-text-primary text-lg px-3 py-2 rounded-lg hover:bg-slate-50">
-                                <i data-lucide="message-square" class="w-6 h-6"></i>
-                                ${comments.length} Komentar
-                            </button>
-                        </div>
-
-                        <div class="flex flex-wrap gap-2 mt-3">
-                            ${Object.entries(reactions).filter(([_, count]) => count > 0).map(([emoji, count]) => `
-                                <div class="relative group/reac">
-                                    <button onclick="addReaction(${q.id}, '${emoji}')" class="flex items-center gap-1.5 px-2.5 py-1.5 bg-slate-50 hover:bg-slate-100 border border-slate-100 rounded-full transition-all group active:scale-90">
-                                        <span class="text-base">${emoji}</span>
-                                        <span class="font-bold main-text-primary">${count}</span>
-                                    </button>
-                                    ${isAdmin ? `
-                                        <button onclick="removeReaction(${q.id}, '${emoji}')" class="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-4 h-4 flex items-center justify-center opacity-0 group-hover/reac:opacity-100 transition-opacity shadow-sm hover:bg-red-600">
-                                            <i data-lucide="x" class="w-2.5 h-2.5"></i>
-                                        </button>
-                                    ` : ''}
-                                </div>
-                            `).join('')}
-                            <button onclick="promptNewReaction(${q.id})" class="flex items-center justify-center w-9 h-9 bg-slate-50 hover:bg-slate-100 border border-dashed border-slate-200 rounded-full transition-all group active:scale-90" title="Tambah Reaksi">
-                                <i data-lucide="plus" class="w-4 h-4 text-slate-400 group-hover:main-text-primary"></i>
-                            </button>
-                        </div>
+                    <div>
+                        <div class="font-bold text-slate-900">Anonymous <span class="text-slate-400 font-normal ml-2">${formatTime(q.timestamp)}</span></div>
+                        <p class="text-lg text-slate-800 mt-1">${escapeHtml(q.text)}</p>
                     </div>
                 </div>
-                
-                <div id="comments-${q.id}" class="hidden bg-slate-50 border-t border-gray-100 p-4 space-y-4">
-                    <div class="space-y-3">
-                        ${comments.map(c => `
-                            <div class="flex gap-3 items-start">
-                                <div class="w-7 h-7 bg-white rounded-full flex items-center justify-center border border-gray-200 shrink-0">
-                                    <i data-lucide="user" class="w-4 h-4 text-slate-400"></i>
-                                </div>
-                                <div class="bg-white px-4 py-2 rounded-2xl border border-gray-100 shadow-sm flex-1">
-                                    <p class="text-sm text-slate-700">${escapeHtml(c.text)}</p>
-                                    <span class="text-[10px] text-slate-400 mt-1 block">${formatTime(c.timestamp)}</span>
-                                </div>
-                            </div>
-                        `).join('')}
-                        ${comments.length === 0 ? '<p class="text-center text-xs text-slate-400 py-2 italic">Belum ada komentar.</p>' : ''}
+                <div class="flex items-center gap-4">
+                    <div class="flex items-center gap-1 text-slate-500 font-bold">
+                        ${q.upvotes} <i data-lucide="thumbs-up" class="w-5 h-5"></i>
                     </div>
-                    
-                     <div class="flex gap-3 pt-4 border-t border-slate-200/50">
-                         <input type="text" id="comment-input-${q.id}" onkeypress="if(event.key === 'Enter') submitComment(${q.id})" class="flex-1 px-6 py-4 text-lg bg-white border-2 border-gray-200 rounded-2xl focus:ring-2 main-border-primary focus:border-transparent outline-none transition-all font-medium" placeholder="Tulis komentar Anda...">
-                         <button onclick="submitComment(${q.id})" class="bg-slate-800 hover:bg-slate-900 text-white px-6 py-4 rounded-2xl transition-all font-bold text-lg flex items-center gap-3 shadow-lg hover:shadow-xl active:scale-95">
-                             <i data-lucide="send" class="w-6 h-6"></i>
-                             Kirim
-                         </button>
-                     </div>
+                    <button class="p-2 text-slate-300 hover:text-slate-600"><i data-lucide="more-horizontal" class="w-5 h-5"></i></button>
                 </div>
             </div>
-        `;
-        }).join('');
+            
+            <div class="flex gap-2">
+                ${Object.entries(q.reactions).map(([emoji, count]) => `
+                    <span class="px-2 py-1 bg-slate-50 rounded-full text-sm border border-slate-100">${emoji} ${count}</span>
+                `).join('')}
+                <button onclick="promptNewReaction(${q.id})" class="p-1 text-slate-400 hover:text-[#008248]"><i data-lucide="smile" class="w-5 h-5"></i></button>
+            </div>
 
-    presList.innerHTML = sorted.length === 0
-        ? `<div class="text-center py-12 text-gray-300 text-xl italic">Menunggu pertanyaan...</div>`
-        : sorted.map((q, index) => `
-            <div class="bg-white p-8 rounded-2xl shadow-md border-l-8 ${index === 0 ? 'main-border-primary' : 'border-gray-200'} flex justify-between items-center">
-                <div class="flex-1">
-                    <div class="flex items-center gap-2 mb-2">
-                        <span class="bg-gray-100 text-gray-600 px-2 py-1 rounded text-xs font-bold">#${index + 1}</span>
-                        <span class="text-gray-400 text-xs">${formatTime(q.timestamp)}</span>
+            <div class="pl-12 space-y-3">
+                ${q.comments.map(c => `
+                    <div class="bg-slate-50 p-3 rounded-lg text-sm text-slate-700">
+                        <span class="font-bold text-[#008248]">Host:</span> ${escapeHtml(c.text)}
                     </div>
-                    <h2 class="text-2xl font-semibold text-gray-800">${escapeHtml(q.text)}</h2>
-                    <div class="flex flex-wrap gap-3 mt-4">
-                        ${Object.entries(q.reactions || {}).map(([emoji, count]) => count > 0 ? `
-                            <div class="flex items-center gap-1.5 px-3 py-1 bg-gray-50 rounded-full border border-gray-100">
-                                <span class="text-xl">${emoji}</span>
-                                <span class="font-bold text-gray-700">${count}</span>
-                            </div>
-                        ` : '').join('')}
+                `).join('')}
+                <div class="flex gap-2">
+                    <input type="text" id="comment-input-${q.id}" class="flex-1 bg-slate-50 border-none rounded-lg text-sm px-4 py-2" placeholder="Reply as host...">
+                    <button onclick="submitComment(${q.id})" class="text-[#008248] font-bold text-sm">Reply</button>
+                </div>
+            </div>
+        </div>
+    `).join('');
+    lucide.createIcons();
+}
+
+function renderPartQuestions() {
+    const list = document.getElementById('part-questions-list');
+    const session = sessions[currentSessionId];
+    if (!session) return;
+
+    document.getElementById('part-question-count-label').textContent = `${session.questions.length} questions`;
+
+    list.innerHTML = session.questions.map(q => `
+        <div class="bg-[#1e1e1e] border border-[#333] rounded-2xl p-6 space-y-4 shadow-lg">
+            <div class="flex justify-between items-start">
+                <div class="flex gap-4">
+                    <div class="w-10 h-10 bg-[#333] rounded-full flex items-center justify-center text-slate-500">
+                        <i data-lucide="user" class="w-6 h-6"></i>
+                    </div>
+                    <div>
+                        <div class="font-bold text-white">Anonymous <span class="text-slate-500 font-normal ml-2">${formatTime(q.timestamp)}</span></div>
+                        <p class="text-lg text-slate-200 mt-1">${escapeHtml(q.text)}</p>
                     </div>
                 </div>
-                <div class="text-center ml-8 px-6 border-l border-gray-100">
-                    <div class="text-4xl font-black main-text-primary">${q.upvotes}</div>
-                    <div class="text-[10px] text-gray-400 uppercase tracking-widest font-bold">Upvotes</div>
-                    ${isAdmin ? `
-                    <button onclick="toggleAnswered(${q.id})" class="mt-4 px-4 py-1.5 rounded-full text-xs font-medium border ${q.isAnswered ? 'bg-green-50 text-green-600 border-green-200' : 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100'}">
-                        ${q.isAnswered ? 'Selesai' : 'Tandai Terjawab'}
+                <button onclick="upvoteQuestion(${q.id})" class="flex items-center gap-2 text-slate-400 hover:text-white transition-colors">
+                    <span class="font-bold">${q.upvotes}</span>
+                    <i data-lucide="thumbs-up" class="w-5 h-5"></i>
+                </button>
+            </div>
+
+            <div class="flex gap-2">
+                ${Object.entries(q.reactions).map(([emoji, count]) => `
+                    <button onclick="addReaction(${q.id}, '${emoji}')" class="px-3 py-1 bg-[#2a2a2a] rounded-full text-sm border border-[#444] text-slate-300 hover:border-[#008248] transition-colors">
+                        ${emoji} ${count}
                     </button>
-                    ` : ''}
-                </div>
+                `).join('')}
+                <button onclick="promptNewReaction(${q.id})" class="p-1 text-slate-500 hover:text-white"><i data-lucide="smile" class="w-5 h-5"></i></button>
             </div>
-        `).join('');
+
+            <div class="pl-14 space-y-3">
+                ${q.comments.map((c, idx) => `
+                    <div class="bg-[#2a2a2a] p-3 rounded-xl text-sm text-slate-300 border border-[#333]">
+                        <span class="font-bold text-[#008248]">Host:</span> ${escapeHtml(c.text)}
+                        <div class="mt-2 flex gap-2">
+                             <!-- Participant can react to host comments but not reply -->
+                             <button onclick="addReactionToComment(${q.id}, ${idx}, '👍')" class="text-xs text-slate-500 hover:text-white">👍</button>
+                             <button onclick="addReactionToComment(${q.id}, ${idx}, '❤️')" class="text-xs text-slate-500 hover:text-white">❤️</button>
+                        </div>
+                    </div>
+                `).join('')}
+            </div>
+        </div>
+    `).join('');
     lucide.createIcons();
 }
 
 async function submitQuestion() {
-    const input = document.getElementById('question-input');
+    if (isAdmin) return alert("Host tidak bisa mengirim pertanyaan, hanya peserta.");
+    const input = document.getElementById('part-question-input');
     const text = input.value.trim();
     if (!text) return;
-    const session = getCurrentSession();
-    if (!session) return;
-
-    const btn = document.querySelector('button[onclick="submitQuestion()"]');
-    btn.disabled = true;
-    btn.innerHTML = 'Mengirim...';
-
+    
     try {
-        const params = new URLSearchParams({
-            action: 'submit_question',
-            session_code: session.shortCode || currentSessionId,
-            content: text
-        });
-
+        const params = new URLSearchParams({ action: 'submit_question', session_code: currentSessionId, content: text });
         await fetch(`${API_URL}?${params.toString()}`);
-
-        session.questions.unshift({ 
-            id: Date.now(), 
-            text: text, 
-            upvotes: 0, 
-            timestamp: new Date().toISOString(), 
-            isAnswered: false,
-            comments: [],
-            reactions: {}
-        });
-        renderQuestions(); 
         input.value = '';
-        addLog('Pertanyaan berhasil dikirim ke server.', 'success');
-    } catch (error) {
-        console.error("Submit question error:", error);
+        fetchQuestionsFromServer();
+    } catch (e) {
         alert("Gagal mengirim pertanyaan.");
-    } finally {
-        btn.disabled = false;
-        btn.innerHTML = 'Kirim Pertanyaan <i data-lucide="send" class="w-5 h-5"></i>';
-        lucide.createIcons();
     }
 }
 
-function toggleComments(qId) {
-    const commentSection = document.getElementById(`comments-${qId}`);
-    if (commentSection) commentSection.classList.toggle('hidden');
-}
-
 async function submitComment(qId) {
+    if (!isAdmin) return alert("Hanya Host yang bisa memberikan komentar.");
     const input = document.getElementById(`comment-input-${qId}`);
     const text = input.value.trim();
     if (!text) return;
-    
-    const session = getCurrentSession();
-    if (!session) return;
-    
-    const question = session.questions.find(q => q.id === qId || q.text === qId); // Fallback to text if ID is index
+
+    const question = sessions[currentSessionId].questions.find(q => q.id === qId);
     if (!question) return;
 
     try {
-        const params = new URLSearchParams({
-            action: 'submit_comment',
-            session_code: session.shortCode,
-            question_text: question.text,
-            content: text
-        });
-        
+        const params = new URLSearchParams({ action: 'submit_comment', session_code: currentSessionId, question_text: question.text, content: text });
         await fetch(`${API_URL}?${params.toString()}`);
-
-        if (!question.comments) question.comments = [];
-        question.comments.push({
-            id: Date.now(),
-            text: text,
-            timestamp: new Date().toISOString()
-        });
         input.value = '';
-        renderQuestions();
+        fetchQuestionsFromServer();
     } catch (e) {
-        console.error("Comment error:", e);
         alert("Gagal mengirim komentar.");
     }
 }
 
-async function upvoteQuestion(id) {
-    const session = getCurrentSession();
-    if (!session) return;
-    const q = session.questions.find(q => q.id === id);
-    if (!q) return;
-
+async function upvoteQuestion(qId) {
+    const question = sessions[currentSessionId].questions.find(q => q.id === qId);
+    if (!question) return;
     try {
-        const params = new URLSearchParams({
-            action: 'upvote_question',
-            session_code: session.shortCode,
-            question_text: q.text
-        });
+        const params = new URLSearchParams({ action: 'upvote_question', session_code: currentSessionId, question_text: question.text });
         await fetch(`${API_URL}?${params.toString()}`);
-        
-        q.upvotes += 1; 
-        renderQuestions(); 
-    } catch (e) {
-        console.error("Upvote error:", e);
-    }
+        fetchQuestionsFromServer();
+    } catch (e) {}
 }
 
 async function addReaction(qId, emoji) {
-    const session = getCurrentSession();
-    if (!session) return;
-    const q = session.questions.find(q => q.id === qId);
-    if (!q) return;
-
+    const question = sessions[currentSessionId].questions.find(q => q.id === qId);
+    if (!question) return;
     try {
-        const params = new URLSearchParams({
-            action: 'submit_reaction',
-            session_code: session.shortCode,
-            question_text: q.text,
-            emoji: emoji
-        });
+        const params = new URLSearchParams({ action: 'submit_reaction', session_code: currentSessionId, question_text: question.text, emoji: emoji });
         await fetch(`${API_URL}?${params.toString()}`);
-
-        if (!q.reactions) q.reactions = {};
-        if (q.reactions[emoji] === undefined) q.reactions[emoji] = 0;
-        q.reactions[emoji]++;
-        renderQuestions();
-    } catch (e) {
-        console.error("Reaction error:", e);
-    }
+        fetchQuestionsFromServer();
+    } catch (e) {}
 }
 
-function removeReaction(qId, emoji) {
-    if (!isAdmin) return;
-    const session = getCurrentSession();
-    if (!session) return;
-    const q = session.questions.find(q => q.id === qId);
-    if (q && q.reactions) {
-        delete q.reactions[emoji];
-        saveSessions();
-        renderQuestions();
-    }
+// --- UTILS ---
+
+function saveSessions() { localStorage.setItem('qa_sessions', JSON.stringify(sessions)); }
+function getSessionFromUrl() { return window.location.hash.substring(1); }
+function formatTime(ts) { 
+    if (!ts) return '';
+    const date = new Date(ts);
+    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+}
+function escapeHtml(text) { 
+    const d = document.createElement('div'); 
+    d.textContent = text; 
+    return d.innerHTML; 
 }
 
 function promptNewReaction(qId) {
     activeReactionQuestionId = qId;
     document.getElementById('emoji-modal').classList.remove('hidden');
-    document.getElementById('custom-emoji-input').value = '';
-    lucide.createIcons();
 }
 
 function hideEmojiModal() {
@@ -1193,276 +457,32 @@ function selectEmoji(emoji) {
     }
 }
 
-function submitCustomEmoji() {
-    const input = document.getElementById('custom-emoji-input');
-    const emoji = input.value.trim();
-    if (emoji && activeReactionQuestionId) {
-        addReaction(activeReactionQuestionId, emoji);
-        hideEmojiModal();
-    }
-}
-
-function toggleAnswered(id) {
-    if (!isAdmin) return;
-    const session = getCurrentSession();
-    if (!session) return;
-    const q = session.questions.find(q => q.id === id);
-    if (q) { q.isAnswered = !q.isAnswered; saveSessions(); renderQuestions(); }
-}
-
-function updateTimer() {
-    const session = getCurrentSession();
-    if (!session) return;
-    const now = Date.now();
-    const elapsed = now - parseInt(session.startTime);
-    const remaining = Math.max(0, SESSION_DURATION - elapsed);
-    const hours = Math.floor(remaining / (1000 * 60 * 60));
-    const minutes = Math.floor((remaining % (1000 * 60 * 60)) / (1000 * 60));
-    const seconds = Math.floor((remaining % (1000 * 60)) / 1000);
-    document.getElementById('session-timer').textContent = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
-    if (remaining <= 0) checkSessions();
+function updateAdminUI() {
+    // Basic UI logic for global states
 }
 
 function showQRCode(id) {
     const sessionId = id || currentSessionId;
-    qrModalSessionId = sessionId; 
-    
     const modal = document.getElementById('qr-modal');
     const qrContainer = document.getElementById('qrcode');
     const session = sessions[sessionId];
     if (!session) return;
 
     document.getElementById('qr-session-name').textContent = session.name;
-    document.getElementById('qr-session-id-display').textContent = session.shortCode || sessionId.split('-').pop();
-    
-    const headerCodeSpan = document.getElementById('header-session-code');
-    if (headerCodeSpan) {
-        headerCodeSpan.textContent = `CODE: ${session.shortCode || sessionId.split('-').pop()}`;
-    }
+    document.getElementById('qr-session-id-display').textContent = `#${session.shortCode || sessionId}`;
     
     modal.classList.remove('hidden');
     qrContainer.innerHTML = '';
-    
-    const baseUrl = window.location.origin + window.location.pathname;
-    const sessionUrl = baseUrl + '#' + sessionId;
-    
-    const primaryColor = getComputedStyle(document.documentElement).getPropertyValue('--main-primary').trim() || "#ea580c";
-    
-    new QRCode(qrContainer, { 
-        text: sessionUrl, 
-        width: 200, 
-        height: 200, 
-        colorDark : primaryColor, 
-        colorLight : "#ffffff", 
-        correctLevel : QRCode.CorrectLevel.H 
-    });
+    const sessionUrl = window.location.origin + window.location.pathname + '#' + sessionId;
+    new QRCode(qrContainer, { text: sessionUrl, width: 200, height: 200, colorDark : "#008248", colorLight : "#ffffff" });
 }
 
-function hideQRCode() { 
-    document.getElementById('qr-modal').classList.add('hidden');
-    qrModalSessionId = null;
-}
-
-function downloadQRCode() {
-    const qrCanvas = document.querySelector('#qrcode canvas');
-    if (!qrCanvas || !qrModalSessionId) return;
-    
-    const session = sessions[qrModalSessionId];
-    if (!session) return;
-    
-    const suffix = session.shortCode || qrModalSessionId.split('-').pop();
-    const link = document.createElement('a');
-    link.download = `barcode-${session.name.replace(/\s+/g, '-').toLowerCase()}-${suffix}.png`;
-    link.href = qrCanvas.toDataURL("image/png");
-    link.click();
-}
-
-function downloadQuestionsPDF() {
-    const session = getCurrentSession();
-    if (!session || !session.questions || session.questions.length === 0) {
-        alert("Tidak ada pertanyaan untuk diunduh.");
-        return;
-    }
-
-    const { jsPDF } = window.jspdf;
-    const doc = new jsPDF();
-    
-    const primaryColor = getComputedStyle(document.documentElement).getPropertyValue('--main-primary').trim() || "#ea580c";
-    const hexToRgb = (hex) => {
-        const r = parseInt(hex.slice(1, 3), 16);
-        const g = parseInt(hex.slice(3, 5), 16);
-        const b = parseInt(hex.slice(5, 7), 16);
-        return [r, g, b];
-    };
-    const rgbColor = hexToRgb(primaryColor);
-
-    const logoUrl = 'assets/img/logo.png';
-    
-    doc.setFontSize(20);
-    doc.setTextColor(rgbColor[0], rgbColor[1], rgbColor[2]);
-    doc.text("Laporan Pertanyaan Q&A", 14, 22);
-    
-    try {
-        doc.addImage(logoUrl, 'PNG', 140, 8, 50, 20);
-    } catch (e) {
-        console.warn("Logo tidak ditemukan atau gagal dimuat:", e);
-    }
-    
-    doc.setFontSize(12);
-    doc.setTextColor(100, 116, 139); 
-    doc.text(`Sesi: ${session.name}`, 14, 32);
-    doc.text(`Waktu Unduh: ${new Date().toLocaleString('id-ID')}`, 14, 39);
-    
-    const tableData = session.questions
-        .sort((a, b) => b.upvotes - a.upvotes)
-        .map((q, index) => {
-            const reactionsStr = Object.entries(q.reactions || {})
-                .filter(([_, count]) => count > 0)
-                .map(([emoji, count]) => `${emoji} ${count}`)
-                .join(', ');
-            
-            return [
-                index + 1,
-                q.text,
-                q.upvotes,
-                reactionsStr || '-',
-                q.isAnswered ? 'Ya' : 'Tidak',
-                formatTime(q.timestamp)
-            ];
-        });
-
-    doc.autoTable({
-        startY: 50,
-        head: [['No', 'Pertanyaan', 'Upvotes', 'Reaksi', 'Terjawab', 'Waktu']],
-        body: tableData,
-        headStyles: { fillColor: rgbColor },
-        styles: { font: 'helvetica', fontSize: 10 },
-        columnStyles: {
-            0: { cellWidth: 10 },
-            1: { cellWidth: 'auto' },
-            2: { cellWidth: 20, halign: 'center' },
-            3: { cellWidth: 30 },
-            4: { cellWidth: 20, halign: 'center' },
-            5: { cellWidth: 30 }
-        }
-    });
-
-    doc.save(`Q&A-${session.name.replace(/\s+/g, '-').toLowerCase()}-${Date.now()}.pdf`);
-}
+function hideQRCode() { document.getElementById('qr-modal').classList.add('hidden'); }
 
 function copySessionLink(id) {
-    const sessionId = id || qrModalSessionId || currentSessionId;
-    const baseUrl = window.location.origin + window.location.pathname;
-    const sessionUrl = baseUrl + '#' + sessionId;
-    
-    navigator.clipboard.writeText(sessionUrl).then(() => {
-        alert('Link sesi berhasil disalin ke clipboard!');
-    }).catch(err => {
-        console.error('Gagal menyalin link: ', err);
-        const el = document.createElement('textarea');
-        el.value = sessionUrl;
-        document.body.appendChild(el);
-        el.select();
-        document.execCommand('copy');
-        document.body.removeChild(el);
-        alert('Link sesi berhasil disalin!');
-    });
+    const sessionId = id || currentSessionId;
+    const sessionUrl = window.location.origin + window.location.pathname + '#' + sessionId;
+    navigator.clipboard.writeText(sessionUrl).then(() => alert("Link disalin!"));
 }
 
-function renderAll() { renderSessionsList(); renderQuestions(); }
-function formatTime(iso) { return new Date(iso).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }); }
-function addLog(message, type = 'info') {
-    console.log(`[${type.toUpperCase()}] ${message}`);
-}
-
-function escapeHtml(text) { const d = document.createElement('div'); d.textContent = text; return d.innerHTML; }
-
-async function fetchQuestionsFromServer() {
-    const session = getCurrentSession();
-    if (!session || !session.shortCode) return;
-
-    try {
-        const url = `${API_URL}?action=get_questions&code=${session.shortCode}`;
-        const response = await fetch(url);
-        const text = await response.text();
-        
-        let questions;
-        try {
-            questions = JSON.parse(text);
-        } catch (e) {
-            console.warn("Silent failure: Gagal mengurai JSON pertanyaan.", text);
-            return;
-        }
-        
-        if (Array.isArray(questions)) {
-            session.questions = questions.map((q, idx) => ({
-                id: q.id || idx, 
-                text: q.content,
-                upvotes: q.votes || 0,
-                timestamp: q.time,
-                isAnswered: q.isAnswered || false,
-                comments: q.comments ? (typeof q.comments === 'string' ? JSON.parse(q.comments) : q.comments) : [],
-                reactions: q.reactions ? (typeof q.reactions === 'string' ? JSON.parse(q.reactions) : q.reactions) : {}
-            }));
-            renderQuestions();
-        }
-    } catch (error) {
-        console.error("Fetch questions error:", error);
-    }
-}
-
-// --- LISTENERS ---
-window.addEventListener('hashchange', () => { 
-    currentSessionId = getSessionFromUrl() || DEFAULT_SESSION_ID; 
-    updateAdminUI();
-    renderAll(); 
-    fetchQuestionsFromServer(); 
-});
-
-// Polling otomatis setiap 5 detik untuk sinkronisasi data
 setInterval(fetchQuestionsFromServer, 5000);
-
-window.addEventListener('storage', (e) => { if (e.key === 'qa_sessions') { sessions = JSON.parse(e.newValue); renderAll(); } });
-
-['admin-page-username', 'admin-page-password'].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) {
-        el.addEventListener('keydown', (e) => { if (e.key === 'Enter') loginAdminFromPage(); });
-    }
-});
-
-(function() {
-    const el = document.getElementById('new-session-name');
-    if (el) {
-        el.addEventListener('keydown', (e) => { if (e.key === 'Enter') confirmCreateSession(); });
-    }
-})();
-
-(function() {
-    const el = document.getElementById('join-session-code');
-    if (el) {
-        el.addEventListener('keydown', (e) => { if (e.key === 'Enter') joinSessionByCode(); });
-    }
-})();
-
-// --- INIT ---
-setInterval(updateTimer, 1000);
-setInterval(fetchQuestionsFromServer, 5000); 
-
-if (currentUser) {
-    if (isSuperAdmin) {
-        showMasterDashboard();
-    } else {
-        showMainApp();
-        updateAdminUI();
-    }
-} else {
-    showLandingPage();
-}
-
-checkSessions();
-applyLandingConfig();
-applyLoginConfig();
-lucide.createIcons();
-renderAll();
-lucide.createIcons();

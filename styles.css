@@ -38,6 +38,42 @@ body { font-family: 'Plus Jakarta Sans', sans-serif; }
 .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
 .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
 .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+/* Dark Mode Theme for Participant View (Image 3) */
+.participant-dark {
+    background-color: #121212 !important;
+    color: #ffffff !important;
+}
+.participant-dark .bg-white {
+    background-color: #1e1e1e !important;
+    border-color: #333 !important;
+}
+.participant-dark .text-slate-900 { color: #f8fafc !important; }
+.participant-dark .text-slate-500 { color: #94a3b8 !important; }
+.participant-dark input, .participant-dark textarea {
+    background-color: #2a2a2a !important;
+    border-color: #444 !important;
+    color: #fff !important;
+}
+.participant-dark .border-slate-100 { border-color: #333 !important; }
+
+/* Slido Style Buttons */
+.btn-slido-primary {
+    background-color: #008248;
+    color: white;
+    border-radius: 8px;
+    font-weight: 600;
+}
+.btn-slido-primary:hover { background-color: #00663a; }
+
+.slido-card {
+    background: white;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    transition: all 0.2s;
+}
+.slido-card:hover { border-color: #008248; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+
 @keyframes float {
     0% { transform: translateY(0px); }
     50% { transform: translateY(-20px); }
