@@ -9,6 +9,7 @@ let currentUser = JSON.parse(localStorage.getItem('currentUser')) || null;
 let currentSessionId = getSessionFromUrl() || '';
 let isAdmin = currentUser && (currentUser.role === 'admin' || currentUser.role === 'administrator');
 let activeReactionQuestionId = null;
+let lastQuestionsJson = ''; // Untuk mendeteksi perubahan data
 
 // --- APP INITIALIZATION ---
 document.addEventListener('DOMContentLoaded', () => {
@@ -247,39 +248,44 @@ function deleteSession(id) {
 async function fetchQuestionsFromServer() {
     if (!currentSessionId) return;
     
-    // Cek apakah ada input yang sedang fokus agar ketikan tidak hilang saat polling
+    // Cek apakah ada input yang sedang fokus agar ketikan tidak hilang
     const focusedElement = document.activeElement;
     const isTyping = focusedElement && (focusedElement.tagName === 'INPUT' || focusedElement.tagName === 'TEXTAREA');
     const focusedId = focusedElement ? focusedElement.id : null;
     const focusedValue = isTyping ? focusedElement.value : null;
+    const selectionStart = isTyping ? focusedElement.selectionStart : null;
+    const selectionEnd = isTyping ? focusedElement.selectionEnd : null;
 
     try {
-        // Jika sesi belum ada di memory (misal: baru buka link), ambil info sesi dulu
-        if (!sessions[currentSessionId]) {
-            const sessionRes = await fetch(`${API_URL}?action=join_session&code=${currentSessionId}`);
-            const sessionData = await sessionRes.json();
-            if (sessionData.status === 'success') {
-                sessions[currentSessionId] = {
-                    id: currentSessionId,
-                    shortCode: currentSessionId,
-                    name: sessionData.session_name,
-                    questions: []
-                };
-                saveSessions();
-                // Update nama di header langsung
-                const nameEl = document.getElementById('part-session-name');
-                if (nameEl) nameEl.textContent = sessionData.session_name;
-            } else {
-                // Jika kode tidak valid, kembali ke beranda
-                window.location.hash = '';
-                showLandingPage();
-                return;
-            }
-        }
-
         const response = await fetch(`${API_URL}?action=get_questions&code=${currentSessionId}`);
         const questions = await response.json();
+        
         if (Array.isArray(questions)) {
+            const currentJson = JSON.stringify(questions);
+            
+            // HANYA RENDER ULANG JIKA DATA BERUBAH
+            if (currentJson === lastQuestionsJson) {
+                return; // Data sama, tidak perlu render ulang
+            }
+            lastQuestionsJson = currentJson;
+
+            // Jika sesi belum ada di memory (misal: baru buka link), ambil info sesi dulu
+            if (!sessions[currentSessionId]) {
+                const sessionRes = await fetch(`${API_URL}?action=join_session&code=${currentSessionId}`);
+                const sessionData = await sessionRes.json();
+                if (sessionData.status === 'success') {
+                    sessions[currentSessionId] = {
+                        id: currentSessionId,
+                        shortCode: currentSessionId,
+                        name: sessionData.session_name,
+                        questions: []
+                    };
+                    saveSessions();
+                    const nameEl = document.getElementById('part-session-name');
+                    if (nameEl) nameEl.textContent = sessionData.session_name;
+                }
+            }
+
             sessions[currentSessionId].questions = questions.map((q, idx) => ({
                 id: q.id || idx,
                 text: q.content,
@@ -291,15 +297,15 @@ async function fetchQuestionsFromServer() {
                 reactions: q.reactions ? (typeof q.reactions === 'string' ? JSON.parse(q.reactions) : q.reactions) : {}
             }));
             
-            // Render ulang
             renderQuestions();
 
-            // Kembalikan fokus dan nilai ketikan jika sedang mengetik
+            // Kembalikan fokus, nilai ketikan, dan posisi kursor jika sedang mengetik
             if (isTyping && focusedId) {
                 const newFocusedElement = document.getElementById(focusedId);
                 if (newFocusedElement) {
                     newFocusedElement.focus();
                     newFocusedElement.value = focusedValue;
+                    newFocusedElement.setSelectionRange(selectionStart, selectionEnd);
                 }
             }
         }
