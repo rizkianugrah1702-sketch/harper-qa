@@ -246,6 +246,13 @@ function deleteSession(id) {
 
 async function fetchQuestionsFromServer() {
     if (!currentSessionId) return;
+    
+    // Cek apakah ada input yang sedang fokus agar ketikan tidak hilang saat polling
+    const focusedElement = document.activeElement;
+    const isTyping = focusedElement && (focusedElement.tagName === 'INPUT' || focusedElement.tagName === 'TEXTAREA');
+    const focusedId = focusedElement ? focusedElement.id : null;
+    const focusedValue = isTyping ? focusedElement.value : null;
+
     try {
         const response = await fetch(`${API_URL}?action=get_questions&code=${currentSessionId}`);
         const questions = await response.json();
@@ -253,13 +260,25 @@ async function fetchQuestionsFromServer() {
             sessions[currentSessionId].questions = questions.map((q, idx) => ({
                 id: q.id || idx,
                 text: q.content,
+                sender: q.sender || "Anonymous",
                 upvotes: q.votes || 0,
                 timestamp: q.time,
                 isAnswered: q.isAnswered || false,
                 comments: q.comments ? (typeof q.comments === 'string' ? JSON.parse(q.comments) : q.comments) : [],
                 reactions: q.reactions ? (typeof q.reactions === 'string' ? JSON.parse(q.reactions) : q.reactions) : {}
             }));
+            
+            // Render ulang
             renderQuestions();
+
+            // Kembalikan fokus dan nilai ketikan jika sedang mengetik
+            if (isTyping && focusedId) {
+                const newFocusedElement = document.getElementById(focusedId);
+                if (newFocusedElement) {
+                    newFocusedElement.focus();
+                    newFocusedElement.value = focusedValue;
+                }
+            }
         }
     } catch (e) {
         console.error("Fetch error:", e);
@@ -289,7 +308,7 @@ function renderAdminQuestions() {
                         <i data-lucide="user" class="w-6 h-6"></i>
                     </div>
                     <div>
-                        <div class="font-bold text-slate-900">Anonymous <span class="text-slate-400 font-normal ml-2">${formatTime(q.timestamp)}</span></div>
+                        <div class="font-bold text-slate-900">${escapeHtml(q.sender)} <span class="text-slate-400 font-normal ml-2">${formatTime(q.timestamp)}</span></div>
                         <p class="text-lg text-slate-800 mt-1">${escapeHtml(q.text)}</p>
                     </div>
                 </div>
@@ -328,6 +347,7 @@ function renderPartQuestions() {
     const session = sessions[currentSessionId];
     if (!session) return;
 
+    document.getElementById('part-session-name').textContent = session.name;
     document.getElementById('part-question-count-label').textContent = `${session.questions.length} pertanyaan`;
 
     list.innerHTML = session.questions.map(q => `
@@ -338,7 +358,7 @@ function renderPartQuestions() {
                         <i data-lucide="user" class="w-6 h-6"></i>
                     </div>
                     <div>
-                        <div class="font-bold text-white">Anonymous <span class="text-slate-500 font-normal ml-2">${formatTime(q.timestamp)}</span></div>
+                        <div class="font-bold text-white">${escapeHtml(q.sender)} <span class="text-slate-500 font-normal ml-2">${formatTime(q.timestamp)}</span></div>
                         <p class="text-lg text-slate-200 mt-1">${escapeHtml(q.text)}</p>
                     </div>
                 </div>
@@ -376,13 +396,22 @@ function renderPartQuestions() {
 async function submitQuestion() {
     if (isAdmin) return alert("Host tidak bisa mengirim pertanyaan, hanya peserta.");
     const input = document.getElementById('part-question-input');
+    const nameInput = document.getElementById('part-sender-name');
     const text = input.value.trim();
+    const senderName = nameInput.value.trim() || "Anonymous";
+    
     if (!text) return;
     
     try {
-        const params = new URLSearchParams({ action: 'submit_question', session_code: currentSessionId, content: text });
+        const params = new URLSearchParams({ 
+            action: 'submit_question', 
+            session_code: currentSessionId, 
+            content: text,
+            sender: senderName 
+        });
         await fetch(`${API_URL}?${params.toString()}`);
         input.value = '';
+        // Reset nameInput jika Anda ingin, atau biarkan agar peserta tidak perlu ketik nama lagi
         fetchQuestionsFromServer();
     } catch (e) {
         alert("Gagal mengirim pertanyaan.");
