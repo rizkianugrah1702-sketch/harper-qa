@@ -254,6 +254,29 @@ async function fetchQuestionsFromServer() {
     const focusedValue = isTyping ? focusedElement.value : null;
 
     try {
+        // Jika sesi belum ada di memory (misal: baru buka link), ambil info sesi dulu
+        if (!sessions[currentSessionId]) {
+            const sessionRes = await fetch(`${API_URL}?action=join_session&code=${currentSessionId}`);
+            const sessionData = await sessionRes.json();
+            if (sessionData.status === 'success') {
+                sessions[currentSessionId] = {
+                    id: currentSessionId,
+                    shortCode: currentSessionId,
+                    name: sessionData.session_name,
+                    questions: []
+                };
+                saveSessions();
+                // Update nama di header langsung
+                const nameEl = document.getElementById('part-session-name');
+                if (nameEl) nameEl.textContent = sessionData.session_name;
+            } else {
+                // Jika kode tidak valid, kembali ke beranda
+                window.location.hash = '';
+                showLandingPage();
+                return;
+            }
+        }
+
         const response = await fetch(`${API_URL}?action=get_questions&code=${currentSessionId}`);
         const questions = await response.json();
         if (Array.isArray(questions)) {
