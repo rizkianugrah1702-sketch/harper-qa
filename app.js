@@ -546,4 +546,77 @@ function copySessionLink(id) {
     navigator.clipboard.writeText(sessionUrl).then(() => alert("Link disalin!"));
 }
 
+// --- PDF EXPORT ---
+function downloadQuestionsPDF() {
+    const session = sessions[currentSessionId];
+    if (!session || !session.questions.length) {
+        alert("Tidak ada pertanyaan untuk diunduh.");
+        return;
+    }
+
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+    
+    // Header Branding
+    doc.setFillColor(234, 88, 12); // #ea580c (Orange)
+    doc.rect(0, 0, 210, 40, 'F');
+    
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(22);
+    doc.setFont("helvetica", "bold");
+    doc.text("LAPORAN Q&A EVENT", 15, 20);
+    
+    doc.setFontSize(12);
+    doc.setFont("helvetica", "normal");
+    doc.text("Harper Hotel Palembang", 15, 30);
+    
+    // Session Info
+    doc.setTextColor(40, 40, 40);
+    doc.setFontSize(14);
+    doc.setFont("helvetica", "bold");
+    doc.text(`Sesi: ${session.name}`, 15, 55);
+    
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "normal");
+    doc.text(`Kode Sesi: #${session.shortCode}`, 15, 62);
+    doc.text(`Tanggal Unduh: ${new Date().toLocaleString('id-ID')}`, 15, 67);
+    doc.text(`Total Pertanyaan: ${session.questions.length}`, 15, 72);
+
+    // Table Data
+    const tableData = session.questions.map((q, index) => [
+        index + 1,
+        q.sender || "Anonymous",
+        q.text,
+        q.upvotes,
+        formatTime(q.timestamp)
+    ]);
+
+    doc.autoTable({
+        startY: 80,
+        head: [['No', 'Pengirim', 'Pertanyaan', 'Vote', 'Waktu']],
+        body: tableData,
+        headStyles: { fillColor: [234, 88, 12], textColor: [255, 255, 255], fontStyle: 'bold' },
+        alternateRowStyles: { fillColor: [245, 245, 245] },
+        styles: { fontSize: 9, cellPadding: 5 },
+        columnStyles: {
+            0: { cellWidth: 10 },
+            1: { cellWidth: 30, fontStyle: 'bold' },
+            2: { cellWidth: 100 },
+            3: { cellWidth: 15, halign: 'center' },
+            4: { cellWidth: 25 }
+        }
+    });
+
+    // Footer
+    const pageCount = doc.internal.getNumberOfPages();
+    for(let i = 1; i <= pageCount; i++) {
+        doc.setPage(i);
+        doc.setFontSize(8);
+        doc.setTextColor(150, 150, 150);
+        doc.text(`Halaman ${i} dari ${pageCount} - TanyaAja System`, 105, 285, { align: 'center' });
+    }
+
+    doc.save(`QA_Report_${session.name.replace(/\s+/g, '_')}_${session.shortCode}.pdf`);
+}
+
 setInterval(fetchQuestionsFromServer, 5000);
