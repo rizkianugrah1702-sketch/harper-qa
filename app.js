@@ -1,5 +1,4 @@
 // --- CONSTANTS ---
-const API_URL = "https://script.google.com/macros/s/AKfycbwm2pHn9-iSFOVmBDu1skr1sjexKV385mo5BkzwWdKxEi6k9RQJeRojuIimqUiLWVaVdg/exec";
 const SESSION_DURATION = 24 * 60 * 60 * 1000;
 const DEFAULT_SESSION_ID = "default-session";
 
@@ -232,8 +231,10 @@ async function loadSystemSettings() {
     const data = snapshot.val();
     if (data) {
       systemSettings = { ...systemSettings, ...data };
-      // Hapus localStorage.setItem untuk menghindari QuotaExceededError
-      // localStorage.setItem("qa_system_settings", JSON.stringify(systemSettings));
+      // Save settings to localStorage (without customAudio to avoid quota issues)
+      const settingsToSave = { ...systemSettings };
+      delete settingsToSave.customAudio;
+      localStorage.setItem("qa_system_settings", JSON.stringify(settingsToSave));
       applySystemSettings();
       
       // Apply customAudio from Firebase
@@ -243,38 +244,13 @@ async function loadSystemSettings() {
     }
   }, (error) => {
     console.error("Error listening to Firebase changes:", error);
-    // DISABLED: Fallback to Google Apps Script (Failed to fetch)
-    // loadFromGoogleAppsScript();
   });
-  
-  // DISABLED: Load from Google Apps Script (Failed to fetch)
-  // // Also try to load from Google Apps Script for initial data
-  // loadFromGoogleAppsScript();
 }
 
-// DISABLED: Google Apps Script (Failed to fetch)
-// async function loadFromGoogleAppsScript() {
-//   try {
-//     const response = await fetch(`${API_URL}?action=get_system_settings`);
-//     const settings = await response.json();
-//     if (settings && !settings.status) {
-//       systemSettings = { ...systemSettings, ...settings };
-//       localStorage.setItem("qa_system_settings", JSON.stringify(systemSettings));
-//       applySystemSettings();
-//       // Also update Firebase with this data if needed
-//       if (systemSettingsRef) {
-//         window.firebaseSet(systemSettingsRef, systemSettings);
-//       }
-//     }
-//   } catch (e) {
-//     console.error("Error loading system settings from Google Apps Script:", e);
-//   }
-// }
+
 
 async function initApp() {
   await loadSystemSettings();
-  // DISABLED: Load users from Google Apps Script (Failed to fetch)
-  // await loadUsers();
   await loadSessions();
   applySystemSettings();
   updateAdminUI();
@@ -295,15 +271,7 @@ async function initApp() {
   lucide.createIcons();
 }
 
-// DISABLED: Google Apps Script (Failed to fetch)
-// async function loadUsers() {
-//   try {
-//     const response = await fetch(`${API_URL}?action=get_users`);
-//     users = await response.json();
-//   } catch (e) {
-//     console.error("Error loading users:", e);
-//   }
-// }
+
 
 async function loadSessions() {
   try {
@@ -397,20 +365,6 @@ async function saveSystemSettings() {
   } catch (e) {
     console.error("Error saving to Firebase:", e);
   }
-  
-  // DISABLED: Google Apps Script backup (Failed to fetch)
-  // // Also save to Google Apps Script for backup
-  // try {
-  //   console.log("Saving system settings to Google Apps Script...");
-  //   const params = new URLSearchParams();
-  //   params.append("action", "save_system_settings");
-  //   params.append("settings", JSON.stringify(systemSettings));
-  //   await fetch(`${API_URL}?${params.toString()}`);
-  //   console.log("Settings saved to Google Apps Script successfully!");
-  // } catch (e) {
-  //   console.error("Error saving to Google Apps Script:", e);
-  //   // Tidak usah alert, karena sudah tersimpan lokal dan Firebase
-  // }
 }
 
 function showSystemSettings() {
@@ -600,35 +554,6 @@ function selectRoleInModal(role) {
   }
 }
 
-// DISABLED: Add user (uses Google Apps Script, Failed to fetch)
-// async function addUser() {
-//   const username = document.getElementById("new-user-username").value.trim();
-//   const password = document.getElementById("new-user-password").value.trim();
-//   const role = document.getElementById("new-user-role").value;
-
-//   if (!username || !password) return alert("Username dan Password harus diisi.");
-  
-//   try {
-//     const params = new URLSearchParams({ action: "add_user", username, password, role });
-//     const response = await fetch(`${API_URL}?${params.toString()}`);
-//     const result = await response.json();
-    
-//     if (result.status === "success") {
-//       await loadUsers();
-//       renderUsers();
-      
-//       // Reset form
-//       document.getElementById("new-user-username").value = "";
-//       document.getElementById("new-user-password").value = "";
-//       selectRoleInModal("user"); // Reset to default role
-//     } else {
-//       alert(result.message);
-//     }
-//   } catch (e) {
-//     alert("Gagal menambah user.");
-//   }
-// }
-
 function renderUsers() {
   const container = document.getElementById("user-list-container");
   const countBadge = document.getElementById("user-count-badge");
@@ -667,27 +592,6 @@ function renderUsers() {
   }
   lucide.createIcons();
 }
-
-// DISABLED: Delete user (uses Google Apps Script, Failed to fetch)
-// async function deleteUser(username) {
-//   if (username === "admin") return alert("User default tidak bisa dihapus.");
-//   if (confirm(`Hapus user "${username}"?`)) {
-//     try {
-//       const params = new URLSearchParams({ action: "delete_user", username });
-//       const response = await fetch(`${API_URL}?${params.toString()}`);
-//       const result = await response.json();
-      
-//       if (result.status === "success") {
-//         await loadUsers();
-//         renderUsers();
-//       } else {
-//         alert(result.message);
-//       }
-//     } catch (e) {
-//       alert("Gagal menghapus user.");
-//     }
-//   }
-// }
 
 async function showAdminQADashboard(sessionId) {
   if (!isAdmin) return showParticipantView(sessionId);
@@ -783,7 +687,6 @@ async function loginAdminFromPage() {
   btn.disabled = true;
 
   // Default local login (admin/admin)
-  // DISABLED: Google Apps Script login (Failed to fetch)
   try {
     if (user === "admin" && pass === "admin") {
       currentUser = { username: user, role: "admin" };
@@ -1159,9 +1062,12 @@ function renderAdminQuestions() {
             <span class="font-bold text-[#ea580c]">${escapeHtml(c.sender || 'Host')}:</span> ${escapeHtml(c.text)}
           </div>
         `).join("")}
-        <div class="flex gap-2">
-          <input type="text" id="comment-input-${q.id}" class="flex-1 bg-slate-50 border-none rounded-lg text-sm px-4 py-2" placeholder="Balas sebagai host...">
-          <button onclick="submitComment('${q.id}')" class="text-[#ea580c] font-bold text-sm">Balas</button>
+        <div class="flex gap-3">
+          <input type="text" id="comment-input-${q.id}" class="flex-1 bg-slate-50 border border-slate-200 rounded-2xl text-sm px-5 py-3 outline-none focus:border-[#ea580c] transition-all" placeholder="Balas sebagai host...">
+          <button onclick="submitComment('${q.id}')" class="btn-modern btn-modern-primary text-sm whitespace-nowrap">
+            <i data-lucide="send" class="w-4 h-4"></i>
+            Balas
+          </button>
         </div>
       </div>
     </div>
