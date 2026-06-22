@@ -1142,7 +1142,8 @@ function renderAdminQuestions() {
       <div class="pl-12 space-y-3">
         ${q.comments.map(c => `
           <div class="bg-slate-50 p-3 rounded-lg text-sm text-slate-700">
-            <span class="font-bold text-[#ea580c]">Host:</span> ${escapeHtml(c.text)}
+            <!-- 3. PERBAIKI RENDER: Pastikan sender selalu tampil -->
+            <span class="font-bold text-[#ea580c]">${escapeHtml(c.sender || 'Host')}:</span> ${escapeHtml(c.text)}
           </div>
         `).join("")}
         <div class="flex gap-2">
@@ -1193,7 +1194,8 @@ function renderPartQuestions() {
       <div class="pl-14 space-y-3">
         ${q.comments.map((c, idx) => `
           <div class="bg-[#1a1a1a] p-3 rounded-xl text-sm text-slate-300 border border-[#222]">
-            <span class="font-bold text-[#ea580c]">Host:</span> ${escapeHtml(c.text)}
+            <!-- 3. PERBAIKI RENDER: Pastikan sender selalu tampil -->
+            <span class="font-bold text-[#ea580c]">${escapeHtml(c.sender || 'Host')}:</span> ${escapeHtml(c.text)}
             <div class="mt-2 flex gap-2">
               <button onclick="addReactionToComment('${q.id}', ${idx}, '👍')" class="text-xs text-slate-500 hover:text-[#ea580c]">👍</button>
               <button onclick="addReactionToComment('${q.id}', ${idx}, '❤️')" class="text-xs text-slate-500 hover:text-[#ea580c]">❤️</button>
@@ -1238,26 +1240,52 @@ async function submitQuestion() {
 
 async function submitComment(qId) {
   if (!isAdmin) return alert("Hanya Host yang bisa memberikan komentar.");
+  
   const input = document.getElementById(`comment-input-${qId}`);
   const text = input.value.trim();
   if (!text) return;
 
+  // 2. CEGAH DOUBLE CLICK: Dapatkan tombol dan nonaktifkan
+  const button = input?.nextElementSibling;
+  const originalButtonText = button ? button.innerText : "Balas";
+  if (button) {
+    button.disabled = true;
+    button.innerText = "Mengirim...";
+  }
+
   const questionsList = Array.isArray(sessions[currentSessionId]?.questions) ? sessions[currentSessionId].questions : [];
   const question = questionsList.find(q => q.id === qId);
-  if (!question) return;
+  if (!question) {
+    // Kembalikan tombol jika pertanyaan tidak ditemukan
+    if (button) {
+      button.disabled = false;
+      button.innerText = originalButtonText;
+    }
+    return;
+  }
 
   try {
+    // 1. AMANKAN DATA SENDER: Pastikan sender selalu "Host"
+    const senderName = (currentUser && currentUser.name) ? currentUser.name : "Host";
+    
     await waitForFirebase();
     const repliesRef = window.firebaseRef(firebaseDatabase, `sessions/${currentSessionId.toUpperCase()}/questions/${qId}/replies`);
     window.firebasePush(repliesRef, {
-      sender: "Host",
+      sender: senderName,
       text: text,
       timestamp: Date.now()
     });
-    input.value = "";
+    
+    input.value = ""; // Kosongkan input setelah berhasil
   } catch (e) {
     console.error("Error submitting comment:", e);
-    alert("Gagal mengirim komentar.");
+    alert("Gagal mengirim komentar: " + e.toString());
+  } finally {
+    // 2 & 4: PASTIKAN TOMBOL KEMBALI NORMAL SETIAP KONDISI (try atau catch)
+    if (button) {
+      button.disabled = false;
+      button.innerText = originalButtonText;
+    }
   }
 }
 
