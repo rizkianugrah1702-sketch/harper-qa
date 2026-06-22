@@ -1151,27 +1151,39 @@ function downloadQuestionsPDF() {
   doc.text(`Total Pertanyaan: ${session.questions.length}`, 15, 72);
 
   // Table Data
-  const tableData = session.questions.map((q, index) => [
-    index + 1,
-    q.sender || "Anonymous",
-    q.text,
-    q.upvotes,
-    formatTime(q.timestamp)
-  ]);
+  const tableData = session.questions.map((q, index) => {
+    let textBalasan = "-";
+    if (q.comments && q.comments.length > 0) {
+      const balasanArray = q.comments.map(c => c.text).filter(text => text);
+      if (balasanArray.length > 0) {
+        textBalasan = balasanArray.join("\n");
+      }
+    }
+    
+    return [
+      index + 1,
+      q.sender || "Anonymous",
+      q.text,
+      q.upvotes,
+      formatTime(q.timestamp),
+      textBalasan
+    ];
+  });
 
   doc.autoTable({
     startY: 80,
-    head: [["No", "Pengirim", "Pertanyaan", "Vote", "Waktu"]],
+    head: [["No", "Pengirim", "Pertanyaan", "Vote", "Waktu", "Jawaban Host"]],
     body: tableData,
     headStyles: { fillColor: [234, 88, 12], textColor: [255, 255, 255], fontStyle: "bold" },
     alternateRowStyles: { fillColor: [245, 245, 245] },
-    styles: { fontSize: 9, cellPadding: 5 },
+    styles: { fontSize: 9, cellPadding: 5, overflow: "linebreak" },
     columnStyles: {
       0: { cellWidth: 10 },
-      1: { cellWidth: 30, fontStyle: "bold" },
-      2: { cellWidth: 100 },
-      3: { cellWidth: 15, halign: "center" },
-      4: { cellWidth: 25 }
+      1: { cellWidth: 25, fontStyle: "bold" },
+      2: { cellWidth: 60 },
+      3: { cellWidth: 12, halign: "center" },
+      4: { cellWidth: 20 },
+      5: { cellWidth: 73 }
     }
   });
 
