@@ -6,6 +6,8 @@ const DEFAULT_SESSION_ID = "default-session";
 // --- Firebase Helpers ---
 let firebaseDatabase = null;
 let systemSettingsRef = null;
+let questionsRef = null;
+let questionsListenerUnsubscribe = null;
 
 // Wait for Firebase to be initialized
 function waitForFirebase() {
@@ -723,6 +725,12 @@ async function deleteSession(id) {
 async function fetchQuestionsFromServer() {
   if (!currentSessionId) return;
   
+  // Hapus listener lama jika ada
+  if (questionsListenerUnsubscribe) {
+    questionsListenerUnsubscribe();
+    questionsListenerUnsubscribe = null;
+  }
+  
   // Cek apakah ada input yang sedang fokus agar ketikan tidak hilang
   const focusedElement = document.activeElement;
   const isTyping = focusedElement && (focusedElement.tagName === "INPUT" || focusedElement.tagName === "TEXTAREA");
@@ -732,80 +740,71 @@ async function fetchQuestionsFromServer() {
   const selectionEnd = isTyping ? focusedElement.selectionEnd : null;
 
   try {
-    const response = await fetch(`${API_URL}?action=get_questions&code=${currentSessionId.toUpperCase()}`);
-    const questions = await response.json();
+    await waitForFirebase();
+    const sessionQuestionsRef = window.firebaseRef(firebaseDatabase, `sessions/${currentSessionId.toUpperCase()}/questions`);
     
-    if (Array.isArray(questions)) {
-      const currentJson = JSON.stringify(questions);
+    // Set up real-time listener
+    questionsListenerUnsubscribe = window.firebaseOnValue(sessionQuestionsRef, (snapshot) => {
+      const questionsData = [];
+      let questionCount = 0;
       
-      // Track question count changes
+      snapshot.forEach((childSnapshot) => {
+        const data = childSnapshot.val();
+        questionsData.push({
+          id: childSnapshot.key, // Firebase unique key!
+          text: data.text,
+          sender: data.name || "Anonymous",
+          upvotes: data.upvotes || 0,
+          timestamp: data.timestamp,
+          comments: data.replies ? Object.values(data.replies) : [],
+          reactions: data.reactions || {}
+        });
+        questionCount++;
+      });
+      
+      // Track question count changes (for notifications)
       const lastCount = lastQuestionCountPerSession[currentSessionId] || 0;
-      if (questions.length > lastCount && isAdmin) {
-        // New questions detected!
-        lastQuestionCountPerSession[currentSessionId] = questions.length;
-        
-        // Mark session as having new questions
+      if (questionCount > lastCount && isAdmin) {
+        lastQuestionCountPerSession[currentSessionId] = questionCount;
         if (sessions[currentSessionId]) {
           sessions[currentSessionId].hasNewQuestions = true;
           sessions[currentSessionId].lastActivity = Date.now();
-          renderAdminSessions(); // Re-render sessions to show highlight
+          renderAdminSessions();
         }
-        
-        // Play notification sound
         playNotificationSound();
-        
-        // Set up reminder notifications
         if (document.getElementById("admin-qa-dashboard").classList.contains("hidden")) {
           notificationRepeatCount = 0;
           scheduleReminder();
         }
       }
-      
-      // HANYA RENDER ULANG JIKA DATA BERUBAH
-      if (currentJson === lastQuestionsJson) {
-        return; // Data sama, tidak perlu render ulang
-      }
-      lastQuestionsJson = currentJson;
 
-      // Jika sesi belum ada di memory (misal: baru buka link), ambil info sesi dulu
+      // Jika sesi belum ada di memory, buatnya
       if (!sessions[currentSessionId]) {
-        const sessionRes = await fetch(`${API_URL}?action=join_session&code=${currentSessionId.toUpperCase()}`);
-        const sessionData = await sessionRes.json();
-        if (sessionData.status === "success") {
-          sessions[currentSessionId] = {
-            id: currentSessionId,
-            shortCode: currentSessionId,
-            name: sessionData.session_name,
-            questions: []
-          };
-          const nameEl = document.getElementById("part-session-name");
-          if (nameEl) nameEl.textContent = sessionData.session_name;
-        }
+        sessions[currentSessionId] = {
+          id: currentSessionId,
+          shortCode: currentSessionId,
+          name: currentSessionId, // Fallback, should get from somewhere else
+          questions: []
+        };
       }
 
-      sessions[currentSessionId].questions = questions.map((q, idx) => ({
-        id: q.id || idx,
-        text: q.content,
-        sender: q.sender || "Anonymous",
-        upvotes: q.votes || 0,
-        timestamp: q.time,
-        isAnswered: q.isAnswered || false,
-        comments: q.comments ? (typeof q.comments === "string" ? JSON.parse(q.comments) : q.comments) : [],
-        reactions: q.reactions ? (typeof q.reactions === "string" ? JSON.parse(q.reactions) : q.reactions) : {}
-      }));
-      
+      sessions[currentSessionId].questions = questionsData;
       renderQuestions();
-
-      // Kembalikan fokus, nilai ketikan, dan posisi kursor jika sedang mengetik
+      
+      // Kembalikan fokus jika ada
       if (isTyping && focusedId) {
-        const newFocusedElement = document.getElementById(focusedId);
-        if (newFocusedElement) {
-          newFocusedElement.focus();
-          newFocusedElement.value = focusedValue;
-          newFocusedElement.setSelectionRange(selectionStart, selectionEnd);
-        }
+        setTimeout(() => {
+          const newFocusedElement = document.getElementById(focusedId);
+          if (newFocusedElement) {
+            newFocusedElement.focus();
+            newFocusedElement.value = focusedValue;
+            newFocusedElement.setSelectionRange(selectionStart, selectionEnd);
+          }
+        }, 0);
       }
-    }
+    }, (error) => {
+      console.error("Error listening to questions:", error);
+    });
   } catch (e) {
     console.error("Fetch error:", e);
   }
@@ -850,7 +849,7 @@ function renderAdminQuestions() {
   document.getElementById("admin-question-count").textContent = session.questions.length;
   
   list.innerHTML = session.questions.map(q => `
-    <div class="bg-white border border-slate-100 rounded-xl p-6 shadow-sm space-y-4">
+    <div class="bg-white border border-slate-100 rounded-xl p-6 shadow-sm space-y-4" data-id="${q.id}">
       <div class="flex justify-between items-start">
         <div class="flex gap-3">
           <div class="w-10 h-10 bg-slate-100 rounded-full flex items-center justify-center text-slate-400">
@@ -872,7 +871,7 @@ function renderAdminQuestions() {
         ${Object.entries(q.reactions).map(([emoji, count]) => `
           <span class="px-2 py-1 bg-slate-50 rounded-full text-sm border border-slate-100">${emoji} ${count}</span>
         `).join("")}
-        <button onclick="promptNewReaction(${q.id})" class="p-1 text-slate-400 hover:text-[#ea580c]"><i data-lucide="smile" class="w-5 h-5"></i></button>
+        <button onclick="promptNewReaction('${q.id}')" class="p-1 text-slate-400 hover:text-[#ea580c]"><i data-lucide="smile" class="w-5 h-5"></i></button>
       </div>
 
       <div class="pl-12 space-y-3">
@@ -883,7 +882,7 @@ function renderAdminQuestions() {
         `).join("")}
         <div class="flex gap-2">
           <input type="text" id="comment-input-${q.id}" class="flex-1 bg-slate-50 border-none rounded-lg text-sm px-4 py-2" placeholder="Balas sebagai host...">
-          <button onclick="submitComment(${q.id})" class="text-[#ea580c] font-bold text-sm">Balas</button>
+          <button onclick="submitComment('${q.id}')" class="text-[#ea580c] font-bold text-sm">Balas</button>
         </div>
       </div>
     </div>
@@ -900,7 +899,7 @@ function renderPartQuestions() {
   document.getElementById("part-question-count-label").textContent = `${session.questions.length} pertanyaan`;
 
   list.innerHTML = session.questions.map(q => `
-    <div class="bg-[#111] border border-[#222] rounded-2xl p-6 space-y-4 shadow-lg">
+    <div class="bg-[#111] border border-[#222] rounded-2xl p-6 space-y-4 shadow-lg" data-id="${q.id}">
       <div class="flex justify-between items-start">
         <div class="flex gap-4">
           <div class="w-10 h-10 bg-[#222] rounded-full flex items-center justify-center text-slate-500">
@@ -911,7 +910,7 @@ function renderPartQuestions() {
             <p class="text-lg text-slate-200 mt-1">${escapeHtml(q.text)}</p>
           </div>
         </div>
-        <button onclick="upvoteQuestion(${q.id})" class="flex items-center gap-2 text-slate-400 hover:text-[#ea580c] transition-colors">
+        <button onclick="upvoteQuestion('${q.id}')" class="flex items-center gap-2 text-slate-400 hover:text-[#ea580c] transition-colors">
           <span class="font-bold">${q.upvotes}</span>
           <i data-lucide="thumbs-up" class="w-5 h-5"></i>
         </button>
@@ -919,11 +918,11 @@ function renderPartQuestions() {
 
       <div class="flex gap-2">
         ${Object.entries(q.reactions).map(([emoji, count]) => `
-          <button onclick="addReaction(${q.id}, '${emoji}')" class="px-3 py-1 bg-[#1a1a1a] rounded-full text-sm border border-[#333] text-slate-300 hover:border-[#ea580c] transition-colors">
+          <button onclick="addReaction('${q.id}', '${emoji}')" class="px-3 py-1 bg-[#1a1a1a] rounded-full text-sm border border-[#333] text-slate-300 hover:border-[#ea580c] transition-colors">
             ${emoji} ${count}
           </button>
         `).join("")}
-        <button onclick="promptNewReaction(${q.id})" class="p-1 text-slate-500 hover:text-white"><i data-lucide="smile" class="w-5 h-5"></i></button>
+        <button onclick="promptNewReaction('${q.id}')" class="p-1 text-slate-500 hover:text-white"><i data-lucide="smile" class="w-5 h-5"></i></button>
       </div>
 
       <div class="pl-14 space-y-3">
@@ -931,8 +930,8 @@ function renderPartQuestions() {
           <div class="bg-[#1a1a1a] p-3 rounded-xl text-sm text-slate-300 border border-[#222]">
             <span class="font-bold text-[#ea580c]">Host:</span> ${escapeHtml(c.text)}
             <div class="mt-2 flex gap-2">
-              <button onclick="addReactionToComment(${q.id}, ${idx}, '👍')" class="text-xs text-slate-500 hover:text-[#ea580c]">👍</button>
-              <button onclick="addReactionToComment(${q.id}, ${idx}, '❤️')" class="text-xs text-slate-500 hover:text-[#ea580c]">❤️</button>
+              <button onclick="addReactionToComment('${q.id}', ${idx}, '👍')" class="text-xs text-slate-500 hover:text-[#ea580c]">👍</button>
+              <button onclick="addReactionToComment('${q.id}', ${idx}, '❤️')" class="text-xs text-slate-500 hover:text-[#ea580c]">❤️</button>
             </div>
           </div>
         `).join("")}
@@ -945,31 +944,29 @@ function renderPartQuestions() {
 async function submitQuestion() {
   if (isAdmin) return alert("Host tidak bisa mengirim pertanyaan, hanya peserta.");
   const input = document.getElementById("part-question-input");
-  const nameInput = document.getElementById("part-sender-name");
+  const nameInputEl = document.getElementById("part-sender-name");
   const text = input.value.trim();
-  const senderName = nameInput.value.trim() || "Anonymous";
+  const senderName = nameInputEl.value.trim() || "Anonymous";
   
   if (!text) return alert("Pertanyaan tidak boleh kosong");
   
   try {
-    const params = new URLSearchParams({ 
-      action: "submit_question", 
-      session_code: currentSessionId.toUpperCase(), 
-      content: text,
-      sender: senderName 
+    await waitForFirebase();
+    // Simpan pertanyaan ke Firebase Realtime Database per sesi
+    const sessionQuestionsRef = window.firebaseRef(firebaseDatabase, `sessions/${currentSessionId.toUpperCase()}/questions`);
+    window.firebasePush(sessionQuestionsRef, {
+      name: senderName,
+      text: text,
+      timestamp: Date.now(),
+      replies: {},
+      upvotes: 0,
+      reactions: {}
     });
-    const response = await fetch(`${API_URL}?${params.toString()}`);
-    const result = await response.json();
-    
-    if (result.status && result.status === "error") {
-      alert("Gagal mengirim pertanyaan: " + result.message);
-      return;
-    }
     
     input.value = "";
-    // Refresh pertanyaan
-    fetchQuestionsFromServer();
+    // fetchQuestionsFromServer will automatically update because of real-time listener!
   } catch (e) {
+    console.error("Error submitting question:", e);
     alert("Gagal mengirim pertanyaan: " + e.toString());
   }
 }
@@ -984,11 +981,16 @@ async function submitComment(qId) {
   if (!question) return;
 
   try {
-    const params = new URLSearchParams({ action: "submit_comment", session_code: currentSessionId.toUpperCase(), question_text: question.text, content: text });
-    await fetch(`${API_URL}?${params.toString()}`);
+    await waitForFirebase();
+    const repliesRef = window.firebaseRef(firebaseDatabase, `sessions/${currentSessionId.toUpperCase()}/questions/${qId}/replies`);
+    window.firebasePush(repliesRef, {
+      sender: "Host",
+      text: text,
+      timestamp: Date.now()
+    });
     input.value = "";
-    fetchQuestionsFromServer();
   } catch (e) {
+    console.error("Error submitting comment:", e);
     alert("Gagal mengirim komentar.");
   }
 }
@@ -997,20 +999,25 @@ async function upvoteQuestion(qId) {
   const question = sessions[currentSessionId].questions.find(q => q.id === qId);
   if (!question) return;
   try {
-    const params = new URLSearchParams({ action: "upvote_question", session_code: currentSessionId.toUpperCase(), question_text: question.text });
-    await fetch(`${API_URL}?${params.toString()}`);
-    fetchQuestionsFromServer();
-  } catch (e) {}
+    await waitForFirebase();
+    const questionRef = window.firebaseRef(firebaseDatabase, `sessions/${currentSessionId.toUpperCase()}/questions/${qId}/upvotes`);
+    window.firebaseSet(questionRef, (question.upvotes || 0) + 1);
+  } catch (e) {
+    console.error("Error upvoting question:", e);
+  }
 }
 
 async function addReaction(qId, emoji) {
   const question = sessions[currentSessionId].questions.find(q => q.id === qId);
   if (!question) return;
   try {
-    const params = new URLSearchParams({ action: "submit_reaction", session_code: currentSessionId.toUpperCase(), question_text: question.text, emoji: emoji });
-    await fetch(`${API_URL}?${params.toString()}`);
-    fetchQuestionsFromServer();
-  } catch (e) {}
+    await waitForFirebase();
+    const reactionCount = (question.reactions && question.reactions[emoji]) ? question.reactions[emoji] : 0;
+    const reactionRef = window.firebaseRef(firebaseDatabase, `sessions/${currentSessionId.toUpperCase()}/questions/${qId}/reactions/${emoji}`);
+    window.firebaseSet(reactionRef, reactionCount + 1);
+  } catch (e) {
+    console.error("Error adding reaction:", e);
+  }
 }
 
 // --- UTILS ---
