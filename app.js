@@ -34,91 +34,120 @@ function waitForFirebase() {
 }
 
 async function startSessionTimer(sessionId) {
-    if (timerInterval) {
+  // 1. KUNCI LOGIKA TIMER OTOMATIS: Cek ID sesi terlebih dahulu!
+  if (!sessionId || sessionId === "undefined" || sessionId === undefined) {
+    console.log("Timer dihentikan: ID sesi tidak valid.");
+    return;
+  }
+
+  if (timerInterval) {
+    clearInterval(timerInterval);
+    timerInterval = null;
+  }
+
+  await waitForFirebase();
+  const sessionRef = window.firebaseRef(firebaseDatabase, `sessions/${sessionId}`);
+
+  // Cek apakah sesi masih ada di Firebase sebelum melanjutkan
+  const snapshot = await new Promise((resolve) => {
+    window.firebaseOnValue(sessionRef, resolve, { onlyOnce: true });
+  });
+  let sessionData = snapshot.val();
+  
+  // Jika sesi tidak ada di Firebase, berhenti!
+  if (!sessionData) {
+    console.log(`Timer dihentikan: Sesi ${sessionId} tidak ditemukan di Firebase.`);
+    return;
+  }
+
+  let createdAt;
+  if (!sessionData.createdAt) {
+    createdAt = Date.now();
+    await window.firebaseSet(window.firebaseRef(firebaseDatabase, `sessions/${sessionId}/createdAt`), createdAt);
+  } else {
+    createdAt = sessionData.createdAt;
+  }
+
+  const totalDuration = 12 * 60 * 60 * 1000; // 12 hours in ms
+  const timerElement = document.getElementById('session-timer');
+  if (timerElement) {
+    timerElement.style.display = 'inline-block';
+  }
+
+  // Timer function dengan pengaman tambahan
+  const updateTimer = async () => {
+    // Pengaman ekstra: Cek kembali ID sesi setiap detik
+    if (!sessionId || sessionId === "undefined") {
+      clearInterval(timerInterval);
+      timerInterval = null;
+      return;
+    }
+
+    const expiryTime = createdAt + totalDuration;
+    let sisaWaktu = expiryTime - Date.now();
+
+    if (sisaWaktu <= 0) {
+      // Cek sekali lagi apakah sesi masih ada sebelum menghapus
+      const checkSnapshot = await new Promise((resolve) => {
+        window.firebaseOnValue(sessionRef, resolve, { onlyOnce: true });
+      });
+      if (!checkSnapshot.val()) {
         clearInterval(timerInterval);
         timerInterval = null;
-    }
-    if (!sessionId) return;
+        return;
+      }
 
-    await waitForFirebase();
-    const sessionRef = window.firebaseRef(firebaseDatabase, `sessions/${sessionId}`);
+      const questionsRef = window.firebaseRef(firebaseDatabase, `sessions/${sessionId}/questions`);
+      await window.firebaseSet(questionsRef, null);
 
-    // Check if createdAt exists, if not set it
-    const snapshot = await new Promise((resolve) => {
-        window.firebaseOnValue(sessionRef, resolve, { onlyOnce: true });
-    });
-    let sessionData = snapshot.val();
-    let createdAt;
-    if (!sessionData || !sessionData.createdAt) {
-        createdAt = Date.now();
-        // Only update createdAt field, not entire session!
-        await window.firebaseSet(window.firebaseRef(firebaseDatabase, `sessions/${sessionId}/createdAt`), createdAt);
-    } else {
-        createdAt = sessionData.createdAt;
+      const newCreatedAt = Date.now();
+      await window.firebaseSet(window.firebaseRef(firebaseDatabase, `sessions/${sessionId}/createdAt`), newCreatedAt);
+      
+      createdAt = newCreatedAt;
+      return;
     }
 
-    const totalDuration = 12 * 60 * 60 * 1000; // 12 hours in ms
-    const timerElement = document.getElementById('session-timer');
+    const totalSeconds = Math.floor(sisaWaktu / 1000);
+    const hours = Math.floor(totalSeconds / 3600).toString().padStart(2, '0');
+    const minutes = Math.floor((totalSeconds % 3600) / 60).toString().padStart(2, '0');
+    const seconds = (totalSeconds % 60).toString().padStart(2, '0');
+
     if (timerElement) {
-        timerElement.style.display = 'inline-block';
+      timerElement.textContent = `${hours}:${minutes}:${seconds}`;
     }
+  };
 
-    // Timer function
-    const updateTimer = async () => {
-        const expiryTime = createdAt + totalDuration;
-        let sisaWaktu = expiryTime - Date.now();
-
-        if (sisaWaktu <= 0) {
-            // Clear all questions in this session
-            const questionsRef = window.firebaseRef(firebaseDatabase, `sessions/${sessionId}/questions`);
-            await window.firebaseSet(questionsRef, null);
-
-            // Reset createdAt to now to start new 12-hour cycle
-            // Only update createdAt field, not entire session!
-            const newCreatedAt = Date.now();
-            await window.firebaseSet(window.firebaseRef(firebaseDatabase, `sessions/${sessionId}/createdAt`), newCreatedAt);
-            
-            // Update local createdAt for next cycle
-            createdAt = newCreatedAt;
-            return;
-        }
-
-        // Convert to HH:MM:SS
-        const totalSeconds = Math.floor(sisaWaktu / 1000);
-        const hours = Math.floor(totalSeconds / 3600).toString().padStart(2, '0');
-        const minutes = Math.floor((totalSeconds % 3600) / 60).toString().padStart(2, '0');
-        const seconds = (totalSeconds % 60).toString().padStart(2, '0');
-
-        if (timerElement) {
-            timerElement.textContent = `${hours}:${minutes}:${seconds}`;
-        }
-    };
-
-    // Run immediately and then every second
-    updateTimer();
-    timerInterval = setInterval(updateTimer, 1000);
+  updateTimer();
+  timerInterval = setInterval(updateTimer, 1000);
 }
 
 // --- STATE ---
 let sessions = {};
 let users = [];
-let systemSettings = JSON.parse(localStorage.getItem("qa_system_settings")) || {
-  appName: "TanyaAja",
-  primaryColor: "#ea580c",
-  logoUrl: "assets/img/logo.png",
-  landingTitle: "Gabung ke Sesi Q&A",
-  landingSubtitle: "Masukkan kode sesi unik untuk mulai berdiskusi dan memberikan suara.",
-  landingBgUrl: "assets/img/login-bg.jpg",
-  loginBgUrl: "assets/img/login-bg.jpg",
-  // Landing Right Settings
-  landingRightTitle: "Make your event Interactive.",
-  landingRightSubtitle: "Platform Q&A real-time untuk seminar, workshop, dan konferensi profesional.",
-  landingRightBadge: "Trusted by 500+ Events",
-  // Login Right Settings
-  loginRightTitle: "Q&A EVENT - HARPER HOTEL PALEMBANG",
-  loginRightSubtitle: "Kelola event Anda dengan mudah. Buat sesi baru, bagikan kode, dan pantau jalannya diskusi secara real-time.",
-  appFont: "Plus Jakarta Sans"
-};
+// Inisialisasi systemSettings tanpa customAudio
+let systemSettings = (() => {
+  let savedSettings = localStorage.getItem("qa_system_settings");
+  if (savedSettings) {
+    let parsed = JSON.parse(savedSettings);
+    if (parsed.customAudio) delete parsed.customAudio;
+    return parsed;
+  }
+  return {
+    appName: "TanyaAja",
+    primaryColor: "#ea580c",
+    logoUrl: "assets/img/logo.png",
+    landingTitle: "Gabung ke Sesi Q&A",
+    landingSubtitle: "Masukkan kode sesi unik untuk mulai berdiskusi dan memberikan suara.",
+    landingBgUrl: "assets/img/login-bg.jpg",
+    loginBgUrl: "assets/img/login-bg.jpg",
+    landingRightTitle: "Make your event Interactive.",
+    landingRightSubtitle: "Platform Q&A real-time untuk seminar, workshop, dan konferensi profesional.",
+    landingRightBadge: "Trusted by 500+ Events",
+    loginRightTitle: "Q&A EVENT - HARPER HOTEL PALEMBANG",
+    loginRightSubtitle: "Kelola event Anda dengan mudah. Buat sesi baru, bagikan kode, dan pantau jalannya diskusi secara real-time.",
+    appFont: "Plus Jakarta Sans"
+  };
+})();
 let currentUser = JSON.parse(localStorage.getItem("currentUser")) || null;
 let currentSessionId = getSessionFromUrl() || "";
 let isAdmin = currentUser && (currentUser.role === "admin" || currentUser.role === "user");
@@ -164,9 +193,9 @@ document.addEventListener("DOMContentLoaded", () => {
     soundFileInput.addEventListener('change', async (e) => {
       const file = e.target.files[0];
       if (file) {
-        // Validate file size (max 1MB = 1 * 1024 * 1024 bytes)
-        if (file.size > 1048576) {
-          alert("Ukuran file terlalu besar! Mohon gunakan file MP3 di bawah 1MB agar database tetap ringan.");
+        // Validate file size (max 500KB = 500 * 1024 bytes)
+        if (file.size > 512000) {
+          alert("Ukuran file terlalu besar! Mohon gunakan file MP3 di bawah 500KB agar database tetap ringan.");
           return;
         }
         
@@ -203,7 +232,8 @@ async function loadSystemSettings() {
     const data = snapshot.val();
     if (data) {
       systemSettings = { ...systemSettings, ...data };
-      localStorage.setItem("qa_system_settings", JSON.stringify(systemSettings));
+      // Hapus localStorage.setItem untuk menghindari QuotaExceededError
+      // localStorage.setItem("qa_system_settings", JSON.stringify(systemSettings));
       applySystemSettings();
       
       // Apply customAudio from Firebase
@@ -279,13 +309,22 @@ async function loadSessions() {
   try {
     await waitForFirebase();
     const sessionsRef = window.firebaseRef(firebaseDatabase, 'sessions');
-    window.firebaseOnValue(sessionsRef, (snapshot) => {
+    window.firebaseOnValue(sessionsRef, async (snapshot) => {
       const data = snapshot.val();
       sessions = {};
       if (data) {
-        Object.keys(data).forEach(key => {
-          sessions[key] = data[key];
-        });
+        // 3. FILTER DAN HAPUS OTOMATIS SESI INVALID!
+        for (const key of Object.keys(data)) {
+          // Filter: Jika key adalah "undefined", null, atau kosong
+          if (key === "undefined" || !key || key === "null") {
+            console.log(`Menghapus sesi invalid: ${key}`);
+            const invalidSessionRef = window.firebaseRef(firebaseDatabase, `sessions/${key}`);
+            await window.firebaseSet(invalidSessionRef, null); // Hapus dari Firebase!
+          } else {
+            // Hanya simpan sesi yang valid
+            sessions[key] = data[key];
+          }
+        }
       }
       renderAdminSessions();
     });
@@ -344,8 +383,10 @@ function applySystemSettings() {
 }
 
 async function saveSystemSettings() {
-  // Simpan ke LOKAL TERLEBIH DAHULU agar langsung tampil
-  localStorage.setItem("qa_system_settings", JSON.stringify(systemSettings));
+  // Simpan ke LOKAL (tanpa customAudio untuk menghindari quota
+  const settingsToSave = { ...systemSettings };
+  delete settingsToSave.customAudio; // Hapus customAudio sebelum simpan ke localStorage
+  localStorage.setItem("qa_system_settings", JSON.stringify(settingsToSave));
   applySystemSettings();
   
   // Save to Firebase for real-time sync
@@ -650,6 +691,13 @@ function renderUsers() {
 
 async function showAdminQADashboard(sessionId) {
   if (!isAdmin) return showParticipantView(sessionId);
+  
+  // 2. AMANKAN UPDATE STATUS NOTIFIKASI: Cek ID sesi terlebih dahulu
+  if (!sessionId || sessionId === "undefined" || sessionId === undefined) {
+    console.log("showAdminQADashboard dihentikan: ID sesi tidak valid.");
+    return;
+  }
+
   hideAllPages();
   currentSessionId = sessionId.toUpperCase();
   const session = sessions[currentSessionId];
@@ -661,7 +709,7 @@ async function showAdminQADashboard(sessionId) {
     if (notificationTimeout) {
       clearTimeout(notificationTimeout);
     }
-    // Mark session as read in Firebase (only update isUnread field!)
+    // Mark session as read in Firebase (with session ID check)
     await waitForFirebase();
     const isUnreadRef = window.firebaseRef(firebaseDatabase, `sessions/${currentSessionId.toUpperCase()}/isUnread`);
     window.firebaseSet(isUnreadRef, false);
@@ -678,6 +726,12 @@ async function showAdminQADashboard(sessionId) {
 }
 
 function showParticipantView(sessionId) {
+  // PENGAMAN TAMBAHAN: Cek ID sesi
+  if (!sessionId || sessionId === "undefined" || sessionId === undefined) {
+    console.log("showParticipantView dihentikan: ID sesi tidak valid.");
+    return;
+  }
+  
   hideAllPages();
   currentSessionId = sessionId.toUpperCase();
   const session = sessions[currentSessionId];
@@ -792,7 +846,10 @@ async function joinSessionByCode() {
 
 function renderAdminSessions() {
   const tbody = document.getElementById("admin-sessions-table-body");
-  let sessionsList = Object.values(sessions);
+  let sessionsList = Object.values(sessions).filter(s => {
+    // 3. FILTER EKSTRA DI RENDER: Hilangkan sesi dengan id invalid
+    return s.id && s.id !== "undefined" && s.id !== "null";
+  });
   
   // Sort sessions: those with isUnread first, then by lastActivity
   sessionsList.sort((a, b) => {
@@ -873,12 +930,29 @@ async function confirmCreateSession() {
 }
 
 async function deleteSession(id) {
+  // PENGAMAN: Jangan izinkan menghapus sesi invalid
+  if (!id || id === "undefined" || id === undefined) {
+    console.log("deleteSession dihentikan: ID sesi tidak valid.");
+    return;
+  }
+  
   if (confirm("Hapus sesi ini?")) {
     try {
       await waitForFirebase();
       const sessionRef = window.firebaseRef(firebaseDatabase, `sessions/${id}`);
       await window.firebaseSet(sessionRef, null);
-      await loadSessions(); // Reload sessions from server
+      
+      // Jika ini sesi yang sedang dibuka, keluar dari halaman
+      if (currentSessionId === id) {
+        currentSessionId = "";
+        if (timerInterval) {
+          clearInterval(timerInterval);
+          timerInterval = null;
+        }
+        hideAllPages();
+      }
+      
+      await loadSessions();
       renderAdminSessions();
     } catch (e) {
       alert("Gagal menghapus sesi.");
@@ -889,7 +963,11 @@ async function deleteSession(id) {
 // --- Q&A LOGIC ---
 
 async function fetchQuestionsFromServer() {
-  if (!currentSessionId) return;
+  // 2. AMANKAN UPDATE STATUS NOTIFIKASI: Cek ID sesi terlebih dahulu
+  if (!currentSessionId || currentSessionId === "undefined" || currentSessionId === undefined) {
+    console.log("fetchQuestionsFromServer dihentikan: ID sesi tidak valid.");
+    return;
+  }
   
   // Hapus listener lama jika ada
   if (questionsListenerUnsubscribe) {
@@ -944,10 +1022,10 @@ async function fetchQuestionsFromServer() {
         } catch (err) {
           console.error("Error playing sound:", err);
         }
-        // Mark session as unread in Firebase
-        if (sessions[currentSessionId]) {
-          const sessionRef = window.firebaseRef(firebaseDatabase, `sessions/${currentSessionId.toUpperCase()}`);
-          window.firebaseSet(sessionRef, { ...sessions[currentSessionId], isUnread: true });
+        // Mark session as unread in Firebase (with validation)
+        if (sessions[currentSessionId] && currentSessionId && currentSessionId !== "undefined") {
+          const isUnreadRef = window.firebaseRef(firebaseDatabase, `sessions/${currentSessionId.toUpperCase()}/isUnread`);
+          window.firebaseSet(isUnreadRef, true);
         }
         // Schedule reminder
         if (document.getElementById("admin-qa-dashboard").classList.contains("hidden")) {
