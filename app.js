@@ -436,7 +436,9 @@ function hideSystemSettings() {
 }
 
 async function confirmSaveSystemSettings() {
+  // Pertahankan customAudio dari systemSettings lama!
   systemSettings = {
+    ...systemSettings,
     appName: document.getElementById("sys-set-app-name").value.trim(),
     primaryColor: document.getElementById("sys-set-primary-color").value,
     logoUrl: document.getElementById("sys-set-logo-url").value.trim(),
