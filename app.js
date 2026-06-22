@@ -44,54 +44,59 @@ async function startSessionTimer(sessionId) {
     const sessionRef = window.firebaseRef(firebaseDatabase, `sessions/${sessionId}`);
 
     // Check if createdAt exists, if not set it
-    window.firebaseOnValue(sessionRef, async (snapshot) => {
-        const sessionData = snapshot.val();
-        let createdAt;
-        if (!sessionData || !sessionData.createdAt) {
-            createdAt = Date.now();
-            await window.firebaseSet(sessionRef, { ...sessionData, createdAt: createdAt });
-        } else {
-            createdAt = sessionData.createdAt;
+    const snapshot = await new Promise((resolve) => {
+        window.firebaseOnValue(sessionRef, resolve, { onlyOnce: true });
+    });
+    let sessionData = snapshot.val();
+    let createdAt;
+    if (!sessionData || !sessionData.createdAt) {
+        createdAt = Date.now();
+        // Only update createdAt field, not entire session!
+        await window.firebaseSet(window.firebaseRef(firebaseDatabase, `sessions/${sessionId}/createdAt`), createdAt);
+    } else {
+        createdAt = sessionData.createdAt;
+    }
+
+    const totalDuration = 12 * 60 * 60 * 1000; // 12 hours in ms
+    const timerElement = document.getElementById('session-timer');
+    if (timerElement) {
+        timerElement.style.display = 'inline-block';
+    }
+
+    // Timer function
+    const updateTimer = async () => {
+        const expiryTime = createdAt + totalDuration;
+        let sisaWaktu = expiryTime - Date.now();
+
+        if (sisaWaktu <= 0) {
+            // Clear all questions in this session
+            const questionsRef = window.firebaseRef(firebaseDatabase, `sessions/${sessionId}/questions`);
+            await window.firebaseSet(questionsRef, null);
+
+            // Reset createdAt to now to start new 12-hour cycle
+            // Only update createdAt field, not entire session!
+            const newCreatedAt = Date.now();
+            await window.firebaseSet(window.firebaseRef(firebaseDatabase, `sessions/${sessionId}/createdAt`), newCreatedAt);
+            
+            // Update local createdAt for next cycle
+            createdAt = newCreatedAt;
+            return;
         }
 
-        const totalDuration = 12 * 60 * 60 * 1000; // 12 hours in ms
-        const timerElement = document.getElementById('session-timer');
+        // Convert to HH:MM:SS
+        const totalSeconds = Math.floor(sisaWaktu / 1000);
+        const hours = Math.floor(totalSeconds / 3600).toString().padStart(2, '0');
+        const minutes = Math.floor((totalSeconds % 3600) / 60).toString().padStart(2, '0');
+        const seconds = (totalSeconds % 60).toString().padStart(2, '0');
+
         if (timerElement) {
-            timerElement.style.display = 'inline-block';
+            timerElement.textContent = `${hours}:${minutes}:${seconds}`;
         }
+    };
 
-        // Timer function
-        const updateTimer = async () => {
-            const expiryTime = createdAt + totalDuration;
-            let sisaWaktu = expiryTime - Date.now();
-
-            if (sisaWaktu <= 0) {
-                // Clear all questions in this session
-                const questionsRef = window.firebaseRef(firebaseDatabase, `sessions/${sessionId}/questions`);
-                await window.firebaseSet(questionsRef, null);
-
-                // Reset createdAt to now to start new 12-hour cycle
-                const newCreatedAt = Date.now();
-                await window.firebaseSet(sessionRef, { ...sessionData, createdAt: newCreatedAt });
-
-                return;
-            }
-
-            // Convert to HH:MM:SS
-            const totalSeconds = Math.floor(sisaWaktu / 1000);
-            const hours = Math.floor(totalSeconds / 3600).toString().padStart(2, '0');
-            const minutes = Math.floor((totalSeconds % 3600) / 60).toString().padStart(2, '0');
-            const seconds = (totalSeconds % 60).toString().padStart(2, '0');
-
-            if (timerElement) {
-                timerElement.textContent = `${hours}:${minutes}:${seconds}`;
-            }
-        };
-
-        // Run immediately and then every second
-        updateTimer();
-        timerInterval = setInterval(updateTimer, 1000);
-    }, { onlyOnce: true });
+    // Run immediately and then every second
+    updateTimer();
+    timerInterval = setInterval(updateTimer, 1000);
 }
 
 // --- STATE ---
@@ -630,10 +635,10 @@ async function showAdminQADashboard(sessionId) {
     if (notificationTimeout) {
       clearTimeout(notificationTimeout);
     }
-    // Mark session as read in Firebase
+    // Mark session as read in Firebase (only update isUnread field!)
     await waitForFirebase();
-    const sessionRef = window.firebaseRef(firebaseDatabase, `sessions/${currentSessionId.toUpperCase()}`);
-    window.firebaseSet(sessionRef, { ...session, isUnread: false });
+    const isUnreadRef = window.firebaseRef(firebaseDatabase, `sessions/${currentSessionId.toUpperCase()}/isUnread`);
+    window.firebaseSet(isUnreadRef, false);
   }
   // Show timer
   const timerElement = document.getElementById('session-timer');
@@ -830,7 +835,8 @@ async function confirmCreateSession() {
       shortCode: code,
       name: name,
       createdAt: Date.now(),
-      isUnread: false
+      isUnread: false,
+      questions: {} // Initialize empty questions object
     });
     await loadSessions(); // Reload sessions from server
     hideCreateSessionModal();
