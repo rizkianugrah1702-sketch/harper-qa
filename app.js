@@ -3,6 +3,10 @@ const API_URL = "https://script.google.com/macros/s/AKfycbwm2pHn9-iSFOVmBDu1skr1
 const SESSION_DURATION = 24 * 60 * 60 * 1000;
 const DEFAULT_SESSION_ID = "default-session";
 
+// --- Notification Audio ---
+let notificationAudio = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-500.wav');
+let questionsChildAddedListener = null;
+
 // --- Firebase Helpers ---
 let firebaseDatabase = null;
 let systemSettingsRef = null;
@@ -120,14 +124,57 @@ let notificationTimeout = null; // Timeout for reminder notifications
 let notificationRepeatCount = 0; // Count of reminder notifications
 
 // Create a notification sound
-const notificationSound = new Audio('https://drive.google.com/uc?export=download&id=1FYJtZOmN3XXtKRUjnworwq1p58pcT7cb');
 function playNotificationSound() {
-  notificationSound.currentTime = 0;
-  notificationSound.play();
+  notificationAudio.currentTime = 0;
+  notificationAudio.play().catch(err => console.error("Error playing notification sound:", err));
 }
 
 // --- APP INITIALIZATION ---
 document.addEventListener("DOMContentLoaded", () => {
+  // Load saved notification settings
+  const savedVolume = localStorage.getItem('notifyVolume');
+  if (savedVolume) {
+    notificationAudio.volume = parseFloat(savedVolume);
+    const volumeInput = document.getElementById('notify-volume');
+    const volumeValue = document.getElementById('volume-value');
+    if (volumeInput) volumeInput.value = savedVolume;
+    if (volumeValue) volumeValue.textContent = `${Math.round(parseFloat(savedVolume) * 100)}%`;
+  }
+
+  const savedSound = localStorage.getItem('notifySound');
+  if (savedSound) {
+    notificationAudio.src = savedSound;
+  }
+
+  // Volume slider listener
+  const volumeInput = document.getElementById('notify-volume');
+  if (volumeInput) {
+    volumeInput.addEventListener('input', (e) => {
+      const volume = parseFloat(e.target.value);
+      notificationAudio.volume = volume;
+      localStorage.setItem('notifyVolume', volume.toString());
+      const volumeValue = document.getElementById('volume-value');
+      if (volumeValue) volumeValue.textContent = `${Math.round(volume * 100)}%`;
+    });
+  }
+
+  // Custom sound file listener
+  const soundFileInput = document.getElementById('notify-sound-file');
+  if (soundFileInput) {
+    soundFileInput.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          const base64Sound = event.target.result;
+          notificationAudio.src = base64Sound;
+          localStorage.setItem('notifySound', base64Sound);
+        };
+        reader.readAsDataURL(file);
+      }
+    });
+  }
+
   applySystemSettings();
   initApp();
 });
@@ -573,7 +620,7 @@ async function deleteUser(username) {
   }
 }
 
-function showAdminQADashboard(sessionId) {
+async function showAdminQADashboard(sessionId) {
   if (!isAdmin) return showParticipantView(sessionId);
   hideAllPages();
   currentSessionId = sessionId.toUpperCase();
@@ -586,6 +633,10 @@ function showAdminQADashboard(sessionId) {
     if (notificationTimeout) {
       clearTimeout(notificationTimeout);
     }
+    // Mark session as read in Firebase
+    await waitForFirebase();
+    const sessionRef = window.firebaseRef(firebaseDatabase, `sessions/${currentSessionId.toUpperCase()}`);
+    window.firebaseSet(sessionRef, { ...session, isUnread: false });
   }
   // Show timer
   const timerElement = document.getElementById('session-timer');
@@ -722,10 +773,10 @@ function renderAdminSessions() {
   const tbody = document.getElementById("admin-sessions-table-body");
   let sessionsList = Object.values(sessions);
   
-  // Sort sessions: those with new questions first, then by lastActivity
+  // Sort sessions: those with isUnread first, then by lastActivity
   sessionsList.sort((a, b) => {
-    const aNew = a.hasNewQuestions ? 1 : 0;
-    const bNew = b.hasNewQuestions ? 1 : 0;
+    const aNew = a.isUnread ? 1 : 0;
+    const bNew = b.isUnread ? 1 : 0;
     if (bNew !== aNew) return bNew - aNew;
     return (b.lastActivity || 0) - (a.lastActivity || 0);
   });
@@ -733,10 +784,10 @@ function renderAdminSessions() {
   document.getElementById("total-sessions-count").textContent = sessionsList.length;
 
   tbody.innerHTML = sessionsList.map(s => `
-    <tr class="cursor-pointer group ${s.hasNewQuestions ? "bg-orange-50 border-l-4 border-orange-500" : ""}" onclick="showAdminQADashboard('${s.id}')">
+    <tr class="cursor-pointer group ${s.isUnread ? "bg-green-50 border-l-4 border-green-500" : ""}" onclick="showAdminQADashboard('${s.id}')">
       <td class="px-8 py-5">
         <div class="flex items-center gap-4">
-          <div class="w-12 h-12 ${s.hasNewQuestions ? "bg-orange-100 text-orange-600" : "bg-slate-100 text-slate-400"} rounded-xl flex items-center justify-center group-hover:bg-orange-50 group-hover:text-orange-500 transition-colors">
+          <div class="w-12 h-12 ${s.isUnread ? "bg-green-100 text-green-600" : "bg-slate-100 text-slate-400"} rounded-xl flex items-center justify-center group-hover:bg-green-50 group-hover:text-green-500 transition-colors">
             <i data-lucide="calendar" class="w-6 h-6"></i>
           </div>
           <div>
@@ -746,9 +797,9 @@ function renderAdminSessions() {
         </div>
       </td>
       <td class="px-8 py-5">
-        <div class="inline-flex items-center gap-2.5 px-4 py-2 ${s.hasNewQuestions ? "bg-orange-100 text-orange-600 border-orange-200" : "bg-green-50 text-green-600 border-green-100"} rounded-xl border shadow-sm">
-          <div class="w-2 h-2 ${s.hasNewQuestions ? "bg-orange-500" : "bg-green-500"} rounded-full animate-pulse"></div>
-          <span class="text-[10px] font-black uppercase tracking-widest">${s.hasNewQuestions ? "Pertanyaan Baru!" : "Active Live"}</span>
+        <div class="inline-flex items-center gap-2.5 px-4 py-2 ${s.isUnread ? "bg-green-100 text-green-600 border-green-200" : "bg-green-50 text-green-600 border-green-100"} rounded-xl border shadow-sm">
+          <div class="w-2 h-2 ${s.isUnread ? "bg-green-500" : "bg-green-500"} rounded-full animate-pulse"></div>
+          <span class="text-[10px] font-black uppercase tracking-widest">${s.isUnread ? "Pertanyaan Baru!" : "Active Live"}</span>
         </div>
       </td>
       <td class="px-8 py-5 text-right" onclick="event.stopPropagation()">
@@ -788,7 +839,8 @@ async function confirmCreateSession() {
       id: code,
       shortCode: code,
       name: name,
-      createdAt: Date.now()
+      createdAt: Date.now(),
+      isUnread: false
     });
     await loadSessions(); // Reload sessions from server
     hideCreateSessionModal();
@@ -822,6 +874,10 @@ async function fetchQuestionsFromServer() {
     questionsListenerUnsubscribe();
     questionsListenerUnsubscribe = null;
   }
+  if (questionsChildAddedListener) {
+    questionsChildAddedListener();
+    questionsChildAddedListener = null;
+  }
   
   // Cek apakah ada input yang sedang fokus agar ketikan tidak hilang
   const focusedElement = document.activeElement;
@@ -835,7 +891,7 @@ async function fetchQuestionsFromServer() {
     await waitForFirebase();
     const sessionQuestionsRef = window.firebaseRef(firebaseDatabase, `sessions/${currentSessionId.toUpperCase()}/questions`);
     
-    // Set up real-time listener
+    // Set up real-time value listener
     questionsListenerUnsubscribe = window.firebaseOnValue(sessionQuestionsRef, (snapshot) => {
       const questionsData = [];
       let questionCount = 0;
@@ -858,16 +914,6 @@ async function fetchQuestionsFromServer() {
       const lastCount = lastQuestionCountPerSession[currentSessionId] || 0;
       if (questionCount > lastCount && isAdmin) {
         lastQuestionCountPerSession[currentSessionId] = questionCount;
-        if (sessions[currentSessionId]) {
-          sessions[currentSessionId].hasNewQuestions = true;
-          sessions[currentSessionId].lastActivity = Date.now();
-          renderAdminSessions();
-        }
-        playNotificationSound();
-        if (document.getElementById("admin-qa-dashboard").classList.contains("hidden")) {
-          notificationRepeatCount = 0;
-          scheduleReminder();
-        }
       }
 
       // Jika sesi belum ada di memory, buatnya
@@ -896,6 +942,33 @@ async function fetchQuestionsFromServer() {
       }
     }, (error) => {
       console.error("Error listening to questions:", error);
+    });
+
+    // Set up child_added listener for new questions after initial load
+    window.firebaseOnValue(sessionQuestionsRef, () => {}, { onlyOnce: true }).then(() => {
+      const childAddedRef = window.firebaseRef(firebaseDatabase, `sessions/${currentSessionId.toUpperCase()}/questions`);
+      questionsChildAddedListener = window.firebaseOnValue(childAddedRef.limitToLast(1), (snapshot) => {
+        snapshot.forEach((childSnapshot) => {
+          const data = childSnapshot.val();
+          if (data.timestamp > Date.now() - 5000) {
+            // Play notification sound
+            notificationAudio.currentTime = 0;
+            notificationAudio.play().catch(err => console.error("Error playing sound:", err));
+
+            // Mark session as unread in Firebase
+            if (sessions[currentSessionId]) {
+              const sessionRef = window.firebaseRef(firebaseDatabase, `sessions/${currentSessionId.toUpperCase()}`);
+              window.firebaseSet(sessionRef, { ...sessions[currentSessionId], isUnread: true });
+            }
+
+            // Schedule reminder
+            if (document.getElementById("admin-qa-dashboard").classList.contains("hidden")) {
+              notificationRepeatCount = 0;
+              scheduleReminder();
+            }
+          }
+        });
+      });
     });
   } catch (e) {
     console.error("Fetch error:", e);
