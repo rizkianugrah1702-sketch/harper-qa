@@ -192,6 +192,7 @@ document.addEventListener("DOMContentLoaded", () => {
     soundFileInput.addEventListener('change', async (e) => {
       const file = e.target.files[0];
       if (file) {
+        console.log("Uploading custom sound file...");
         // Validate file size (max 500KB = 500 * 1024 bytes)
         if (file.size > 512000) {
           alert("Ukuran file terlalu besar! Mohon gunakan file MP3 di bawah 500KB agar database tetap ringan.");
@@ -202,14 +203,19 @@ document.addEventListener("DOMContentLoaded", () => {
         const reader = new FileReader();
         reader.onload = async (event) => {
           const base64String = event.target.result;
+          console.log("Converted to Base64, saving to Firebase...");
           
           // Save to Firebase
           try {
             await waitForFirebase();
             await window.firebaseSet(window.firebaseRef(window.firebaseDatabase, 'systemSettings/customAudio'), base64String);
             
+            // Also update local systemSettings
+            systemSettings.customAudio = base64String;
+            
             // Apply to audio element
             notificationAudio.src = base64String;
+            console.log("Custom sound saved and applied!");
           } catch (err) {
             console.error("Gagal menyimpan nada dering ke Firebase:", err);
           }
@@ -229,6 +235,7 @@ async function loadSystemSettings() {
   // Listen for real-time changes from Firebase
   window.firebaseOnValue(systemSettingsRef, (snapshot) => {
     const data = snapshot.val();
+    console.log("System settings from Firebase:", data);
     if (data) {
       systemSettings = { ...systemSettings, ...data };
       // Save settings to localStorage (without customAudio to avoid quota issues)
@@ -237,9 +244,12 @@ async function loadSystemSettings() {
       localStorage.setItem("qa_system_settings", JSON.stringify(settingsToSave));
       applySystemSettings();
       
-      // Apply customAudio from Firebase
+      // Apply customAudio from Firebase (with logging)
       if (data.customAudio) {
+        console.log("Applying custom audio from Firebase");
         notificationAudio.src = data.customAudio;
+      } else {
+        console.log("No custom audio found, using default");
       }
     }
   }, (error) => {
