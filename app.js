@@ -141,11 +141,6 @@ document.addEventListener("DOMContentLoaded", () => {
     if (volumeValue) volumeValue.textContent = `${Math.round(parseFloat(savedVolume) * 100)}%`;
   }
 
-  const savedSound = localStorage.getItem('notifySound');
-  if (savedSound) {
-    notificationAudio.src = savedSound;
-  }
-
   // Volume slider listener
   const volumeInput = document.getElementById('notify-volume');
   if (volumeInput) {
@@ -158,19 +153,14 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  // Custom sound file listener
+  // Custom sound file listener (uses URL.createObjectURL instead of Base64 localStorage)
   const soundFileInput = document.getElementById('notify-sound-file');
   if (soundFileInput) {
     soundFileInput.addEventListener('change', (e) => {
       const file = e.target.files[0];
       if (file) {
-        const reader = new FileReader();
-        reader.onload = (event) => {
-          const base64Sound = event.target.result;
-          notificationAudio.src = base64Sound;
-          localStorage.setItem('notifySound', base64Sound);
-        };
-        reader.readAsDataURL(file);
+        const objectURL = URL.createObjectURL(file);
+        notificationAudio.src = objectURL;
       }
     });
   }
@@ -192,35 +182,38 @@ async function loadSystemSettings() {
     }
   }, (error) => {
     console.error("Error listening to Firebase changes:", error);
-    // Fallback to Google Apps Script if Firebase fails
-    loadFromGoogleAppsScript();
+    // DISABLED: Fallback to Google Apps Script (Failed to fetch)
+    // loadFromGoogleAppsScript();
   });
   
-  // Also try to load from Google Apps Script for initial data
-  loadFromGoogleAppsScript();
+  // DISABLED: Load from Google Apps Script (Failed to fetch)
+  // // Also try to load from Google Apps Script for initial data
+  // loadFromGoogleAppsScript();
 }
 
-async function loadFromGoogleAppsScript() {
-  try {
-    const response = await fetch(`${API_URL}?action=get_system_settings`);
-    const settings = await response.json();
-    if (settings && !settings.status) {
-      systemSettings = { ...systemSettings, ...settings };
-      localStorage.setItem("qa_system_settings", JSON.stringify(systemSettings));
-      applySystemSettings();
-      // Also update Firebase with this data if needed
-      if (systemSettingsRef) {
-        window.firebaseSet(systemSettingsRef, systemSettings);
-      }
-    }
-  } catch (e) {
-    console.error("Error loading system settings from Google Apps Script:", e);
-  }
-}
+// DISABLED: Google Apps Script (Failed to fetch)
+// async function loadFromGoogleAppsScript() {
+//   try {
+//     const response = await fetch(`${API_URL}?action=get_system_settings`);
+//     const settings = await response.json();
+//     if (settings && !settings.status) {
+//       systemSettings = { ...systemSettings, ...settings };
+//       localStorage.setItem("qa_system_settings", JSON.stringify(systemSettings));
+//       applySystemSettings();
+//       // Also update Firebase with this data if needed
+//       if (systemSettingsRef) {
+//         window.firebaseSet(systemSettingsRef, systemSettings);
+//       }
+//     }
+//   } catch (e) {
+//     console.error("Error loading system settings from Google Apps Script:", e);
+//   }
+// }
 
 async function initApp() {
   await loadSystemSettings();
-  await loadUsers();
+  // DISABLED: Load users from Google Apps Script (Failed to fetch)
+  // await loadUsers();
   await loadSessions();
   applySystemSettings();
   updateAdminUI();
@@ -241,14 +234,15 @@ async function initApp() {
   lucide.createIcons();
 }
 
-async function loadUsers() {
-  try {
-    const response = await fetch(`${API_URL}?action=get_users`);
-    users = await response.json();
-  } catch (e) {
-    console.error("Error loading users:", e);
-  }
-}
+// DISABLED: Google Apps Script (Failed to fetch)
+// async function loadUsers() {
+//   try {
+//     const response = await fetch(`${API_URL}?action=get_users`);
+//     users = await response.json();
+//   } catch (e) {
+//     console.error("Error loading users:", e);
+//   }
+// }
 
 async function loadSessions() {
   try {
@@ -332,18 +326,19 @@ async function saveSystemSettings() {
     console.error("Error saving to Firebase:", e);
   }
   
-  // Also save to Google Apps Script for backup
-  try {
-    console.log("Saving system settings to Google Apps Script...");
-    const params = new URLSearchParams();
-    params.append("action", "save_system_settings");
-    params.append("settings", JSON.stringify(systemSettings));
-    await fetch(`${API_URL}?${params.toString()}`);
-    console.log("Settings saved to Google Apps Script successfully!");
-  } catch (e) {
-    console.error("Error saving to Google Apps Script:", e);
-    // Tidak usah alert, karena sudah tersimpan lokal dan Firebase
-  }
+  // DISABLED: Google Apps Script backup (Failed to fetch)
+  // // Also save to Google Apps Script for backup
+  // try {
+  //   console.log("Saving system settings to Google Apps Script...");
+  //   const params = new URLSearchParams();
+  //   params.append("action", "save_system_settings");
+  //   params.append("settings", JSON.stringify(systemSettings));
+  //   await fetch(`${API_URL}?${params.toString()}`);
+  //   console.log("Settings saved to Google Apps Script successfully!");
+  // } catch (e) {
+  //   console.error("Error saving to Google Apps Script:", e);
+  //   // Tidak usah alert, karena sudah tersimpan lokal dan Firebase
+  // }
 }
 
 function showSystemSettings() {
@@ -533,33 +528,34 @@ function selectRoleInModal(role) {
   }
 }
 
-async function addUser() {
-  const username = document.getElementById("new-user-username").value.trim();
-  const password = document.getElementById("new-user-password").value.trim();
-  const role = document.getElementById("new-user-role").value;
+// DISABLED: Add user (uses Google Apps Script, Failed to fetch)
+// async function addUser() {
+//   const username = document.getElementById("new-user-username").value.trim();
+//   const password = document.getElementById("new-user-password").value.trim();
+//   const role = document.getElementById("new-user-role").value;
 
-  if (!username || !password) return alert("Username dan Password harus diisi.");
+//   if (!username || !password) return alert("Username dan Password harus diisi.");
   
-  try {
-    const params = new URLSearchParams({ action: "add_user", username, password, role });
-    const response = await fetch(`${API_URL}?${params.toString()}`);
-    const result = await response.json();
+//   try {
+//     const params = new URLSearchParams({ action: "add_user", username, password, role });
+//     const response = await fetch(`${API_URL}?${params.toString()}`);
+//     const result = await response.json();
     
-    if (result.status === "success") {
-      await loadUsers();
-      renderUsers();
+//     if (result.status === "success") {
+//       await loadUsers();
+//       renderUsers();
       
-      // Reset form
-      document.getElementById("new-user-username").value = "";
-      document.getElementById("new-user-password").value = "";
-      selectRoleInModal("user"); // Reset to default role
-    } else {
-      alert(result.message);
-    }
-  } catch (e) {
-    alert("Gagal menambah user.");
-  }
-}
+//       // Reset form
+//       document.getElementById("new-user-username").value = "";
+//       document.getElementById("new-user-password").value = "";
+//       selectRoleInModal("user"); // Reset to default role
+//     } else {
+//       alert(result.message);
+//     }
+//   } catch (e) {
+//     alert("Gagal menambah user.");
+//   }
+// }
 
 function renderUsers() {
   const container = document.getElementById("user-list-container");
@@ -600,25 +596,26 @@ function renderUsers() {
   lucide.createIcons();
 }
 
-async function deleteUser(username) {
-  if (username === "admin") return alert("User default tidak bisa dihapus.");
-  if (confirm(`Hapus user "${username}"?`)) {
-    try {
-      const params = new URLSearchParams({ action: "delete_user", username });
-      const response = await fetch(`${API_URL}?${params.toString()}`);
-      const result = await response.json();
+// DISABLED: Delete user (uses Google Apps Script, Failed to fetch)
+// async function deleteUser(username) {
+//   if (username === "admin") return alert("User default tidak bisa dihapus.");
+//   if (confirm(`Hapus user "${username}"?`)) {
+//     try {
+//       const params = new URLSearchParams({ action: "delete_user", username });
+//       const response = await fetch(`${API_URL}?${params.toString()}`);
+//       const result = await response.json();
       
-      if (result.status === "success") {
-        await loadUsers();
-        renderUsers();
-      } else {
-        alert(result.message);
-      }
-    } catch (e) {
-      alert("Gagal menghapus user.");
-    }
-  }
-}
+//       if (result.status === "success") {
+//         await loadUsers();
+//         renderUsers();
+//       } else {
+//         alert(result.message);
+//       }
+//     } catch (e) {
+//       alert("Gagal menghapus user.");
+//     }
+//   }
+// }
 
 async function showAdminQADashboard(sessionId) {
   if (!isAdmin) return showParticipantView(sessionId);
@@ -696,31 +693,24 @@ async function loginAdminFromPage() {
   
   if (!user || !pass) return alert("Username dan Password harus diisi.");
 
-  // Cek dari server
   const btn = document.querySelector('button[onclick="loginAdminFromPage()"]');
   btn.innerHTML = "Memproses...";
   btn.disabled = true;
 
+  // Default local login (admin/admin)
+  // DISABLED: Google Apps Script login (Failed to fetch)
   try {
-    const params = new URLSearchParams({ action: "login_admin", username: user, password: pass });
-    const response = await fetch(`${API_URL}?${params.toString()}`);
-    const result = await response.json();
-
-    if (result.status === "success") {
-      currentUser = { username: user, role: result.role || "admin" };
+    if (user === "admin" && pass === "admin") {
+      currentUser = { username: user, role: "admin" };
       isAdmin = true;
       localStorage.setItem("currentUser", JSON.stringify(currentUser));
-      if (currentUser.role === "admin") {
-        showMasterDashboard();
-      } else {
-        showSessionManagement();
-      }
+      showMasterDashboard();
     } else {
-      alert(result.message || "Login Gagal!");
+      alert("Username atau Password salah!");
     }
   } catch (error) {
     console.error("Login error:", error);
-    alert("Koneksi gagal ke server Google.");
+    alert("Login gagal.");
   } finally {
     btn.innerHTML = "Masuk Sekarang";
     btn.disabled = false;
@@ -807,7 +797,7 @@ function renderAdminSessions() {
           <button onclick="showQRCode('${s.id}')" class="p-3 text-slate-400 hover:main-text-primary hover:bg-orange-50 rounded-xl transition-all" title="Share & QR">
             <i data-lucide="share-2" class="w-5 h-5"></i>
           </button>
-          ${currentUser.role === "admin" ? `
+          ${currentUser?.role === "admin" ? `
             <button onclick="deleteSession('${s.id}')" class="p-3 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all" title="Delete Session">
               <i data-lucide="trash-2" class="w-5 h-5"></i>
             </button>
@@ -890,6 +880,7 @@ async function fetchQuestionsFromServer() {
   try {
     await waitForFirebase();
     const sessionQuestionsRef = window.firebaseRef(firebaseDatabase, `sessions/${currentSessionId.toUpperCase()}/questions`);
+    let initialLoadComplete = false;
     
     // Set up real-time value listener
     questionsListenerUnsubscribe = window.firebaseOnValue(sessionQuestionsRef, (snapshot) => {
@@ -910,10 +901,32 @@ async function fetchQuestionsFromServer() {
         questionCount++;
       });
       
-      // Track question count changes (for notifications)
+      // Track question count changes (for notifications) only after initial load
       const lastCount = lastQuestionCountPerSession[currentSessionId] || 0;
-      if (questionCount > lastCount && isAdmin) {
+      if (initialLoadComplete && questionCount > lastCount && isAdmin) {
         lastQuestionCountPerSession[currentSessionId] = questionCount;
+        // Play notification sound
+        try {
+          notificationAudio.currentTime = 0;
+          notificationAudio.play();
+        } catch (err) {
+          console.error("Error playing sound:", err);
+        }
+        // Mark session as unread in Firebase
+        if (sessions[currentSessionId]) {
+          const sessionRef = window.firebaseRef(firebaseDatabase, `sessions/${currentSessionId.toUpperCase()}`);
+          window.firebaseSet(sessionRef, { ...sessions[currentSessionId], isUnread: true });
+        }
+        // Schedule reminder
+        if (document.getElementById("admin-qa-dashboard").classList.contains("hidden")) {
+          notificationRepeatCount = 0;
+          scheduleReminder();
+        }
+      }
+      
+      // Mark initial load complete
+      if (!initialLoadComplete) {
+        initialLoadComplete = true;
       }
 
       // Jika sesi belum ada di memory, buatnya
@@ -929,46 +942,23 @@ async function fetchQuestionsFromServer() {
       sessions[currentSessionId].questions = questionsData;
       renderQuestions();
       
-      // Kembalikan fokus jika ada
-      if (isTyping && focusedId) {
+      // Kembalikan fokus jika ada (exclude range type)
+      if (isTyping && focusedId && document.getElementById(focusedId)?.type !== "range") {
         setTimeout(() => {
           const newFocusedElement = document.getElementById(focusedId);
           if (newFocusedElement) {
             newFocusedElement.focus();
             newFocusedElement.value = focusedValue;
-            newFocusedElement.setSelectionRange(selectionStart, selectionEnd);
+            try {
+              newFocusedElement.setSelectionRange(selectionStart, selectionEnd);
+            } catch (err) {
+              // Ignore error for range inputs
+            }
           }
         }, 0);
       }
     }, (error) => {
       console.error("Error listening to questions:", error);
-    });
-
-    // Set up child_added listener for new questions after initial load
-    window.firebaseOnValue(sessionQuestionsRef, () => {}, { onlyOnce: true }).then(() => {
-      const childAddedRef = window.firebaseRef(firebaseDatabase, `sessions/${currentSessionId.toUpperCase()}/questions`);
-      questionsChildAddedListener = window.firebaseOnValue(childAddedRef.limitToLast(1), (snapshot) => {
-        snapshot.forEach((childSnapshot) => {
-          const data = childSnapshot.val();
-          if (data.timestamp > Date.now() - 5000) {
-            // Play notification sound
-            notificationAudio.currentTime = 0;
-            notificationAudio.play().catch(err => console.error("Error playing sound:", err));
-
-            // Mark session as unread in Firebase
-            if (sessions[currentSessionId]) {
-              const sessionRef = window.firebaseRef(firebaseDatabase, `sessions/${currentSessionId.toUpperCase()}`);
-              window.firebaseSet(sessionRef, { ...sessions[currentSessionId], isUnread: true });
-            }
-
-            // Schedule reminder
-            if (document.getElementById("admin-qa-dashboard").classList.contains("hidden")) {
-              notificationRepeatCount = 0;
-              scheduleReminder();
-            }
-          }
-        });
-      });
     });
   } catch (e) {
     console.error("Fetch error:", e);
@@ -1142,7 +1132,8 @@ async function submitComment(qId) {
   const text = input.value.trim();
   if (!text) return;
 
-  const question = sessions[currentSessionId].questions.find(q => q.id === qId);
+  const questionsList = Array.isArray(sessions[currentSessionId]?.questions) ? sessions[currentSessionId].questions : [];
+  const question = questionsList.find(q => q.id === qId);
   if (!question) return;
 
   try {
@@ -1161,7 +1152,8 @@ async function submitComment(qId) {
 }
 
 async function upvoteQuestion(qId) {
-  const question = sessions[currentSessionId].questions.find(q => q.id === qId);
+  const questionsList = Array.isArray(sessions[currentSessionId]?.questions) ? sessions[currentSessionId].questions : [];
+  const question = questionsList.find(q => q.id === qId);
   if (!question) return;
   try {
     await waitForFirebase();
@@ -1173,7 +1165,8 @@ async function upvoteQuestion(qId) {
 }
 
 async function addReaction(qId, emoji) {
-  const question = sessions[currentSessionId].questions.find(q => q.id === qId);
+  const questionsList = Array.isArray(sessions[currentSessionId]?.questions) ? sessions[currentSessionId].questions : [];
+  const question = questionsList.find(q => q.id === qId);
   if (!question) return;
   try {
     await waitForFirebase();
@@ -1371,6 +1364,16 @@ if (isAdmin) {
 }
 
 // --- AUTO CLEAR QUESTIONS ---
+async function clearSessionQuestionsFirebase(sessionId) {
+  try {
+    await waitForFirebase();
+    const sessionQuestionsRef = window.firebaseRef(firebaseDatabase, `sessions/${sessionId}/questions`);
+    window.firebaseSet(sessionQuestionsRef, null);
+  } catch (e) {
+    console.error("Error clearing session questions in Firebase:", e);
+  }
+}
+
 function scheduleAutoClear() {
   setInterval(() => {
     const now = new Date();
@@ -1384,11 +1387,8 @@ function scheduleAutoClear() {
         localStorage.setItem("last_clear_date", today);
         // Clear all sessions
         Object.keys(sessions).forEach(sessionId => {
-          fetch(`${API_URL}?action=clear_session_questions&code=${sessionId}`)
-            .catch(e => console.error("Error clearing session:", e));
+          clearSessionQuestionsFirebase(sessionId);
         });
-        // Reload sessions
-        loadSessions();
       }
     }
   }, 60000); // Check every minute
