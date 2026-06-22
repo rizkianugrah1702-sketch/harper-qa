@@ -9,11 +9,15 @@ let systemSettingsRef = null;
 let questionsRef = null;
 let questionsListenerUnsubscribe = null;
 
+// --- Timer Helpers ---
+let timerInterval = null;
+let sessionTimerRef = null;
+
 // Wait for Firebase to be initialized
 function waitForFirebase() {
     return new Promise((resolve, reject) => {
         const checkFirebase = () => {
-            if (window.firebaseDatabase && window.firebaseRef && window.firebaseOnValue && window.firebaseSet) {
+            if (window.firebaseDatabase && window.firebaseRef && window.firebaseOnValue && window.firebaseSet && window.firebasePush) {
                 firebaseDatabase = window.firebaseDatabase;
                 systemSettingsRef = window.firebaseRef(firebaseDatabase, 'systemSettings');
                 resolve();
@@ -23,6 +27,67 @@ function waitForFirebase() {
         };
         checkFirebase();
     });
+}
+
+async function startSessionTimer(sessionId) {
+    if (timerInterval) {
+        clearInterval(timerInterval);
+        timerInterval = null;
+    }
+    if (!sessionId) return;
+
+    await waitForFirebase();
+    const sessionRef = window.firebaseRef(firebaseDatabase, `sessions/${sessionId}`);
+
+    // Check if createdAt exists, if not set it
+    window.firebaseOnValue(sessionRef, async (snapshot) => {
+        const sessionData = snapshot.val();
+        let createdAt;
+        if (!sessionData || !sessionData.createdAt) {
+            createdAt = Date.now();
+            await window.firebaseSet(sessionRef, { ...sessionData, createdAt: createdAt });
+        } else {
+            createdAt = sessionData.createdAt;
+        }
+
+        const totalDuration = 12 * 60 * 60 * 1000; // 12 hours in ms
+        const timerElement = document.getElementById('session-timer');
+        if (timerElement) {
+            timerElement.style.display = 'inline-block';
+        }
+
+        // Timer function
+        const updateTimer = async () => {
+            const expiryTime = createdAt + totalDuration;
+            let sisaWaktu = expiryTime - Date.now();
+
+            if (sisaWaktu <= 0) {
+                // Clear all questions in this session
+                const questionsRef = window.firebaseRef(firebaseDatabase, `sessions/${sessionId}/questions`);
+                await window.firebaseSet(questionsRef, null);
+
+                // Reset createdAt to now to start new 12-hour cycle
+                const newCreatedAt = Date.now();
+                await window.firebaseSet(sessionRef, { ...sessionData, createdAt: newCreatedAt });
+
+                return;
+            }
+
+            // Convert to HH:MM:SS
+            const totalSeconds = Math.floor(sisaWaktu / 1000);
+            const hours = Math.floor(totalSeconds / 3600).toString().padStart(2, '0');
+            const minutes = Math.floor((totalSeconds % 3600) / 60).toString().padStart(2, '0');
+            const seconds = (totalSeconds % 60).toString().padStart(2, '0');
+
+            if (timerElement) {
+                timerElement.textContent = `${hours}:${minutes}:${seconds}`;
+            }
+        };
+
+        // Run immediately and then every second
+        updateTimer();
+        timerInterval = setInterval(updateTimer, 1000);
+    }, { onlyOnce: true });
 }
 
 // --- STATE ---
@@ -140,22 +205,18 @@ async function loadUsers() {
 
 async function loadSessions() {
   try {
-    const response = await fetch(`${API_URL}?action=get_sessions`);
-    const serverSessions = await response.json();
-    
-    if (serverSessions.status && serverSessions.status === "error") {
-      console.error("Error loading sessions:", serverSessions.message);
-      if (isAdmin) alert("Gagal memuat sesi: " + serverSessions.message);
-      return;
-    }
-    
-    // Convert array to object keyed by id
-    sessions = {};
-    if (Array.isArray(serverSessions)) {
-      serverSessions.forEach(session => {
-        sessions[session.id] = session;
-      });
-    }
+    await waitForFirebase();
+    const sessionsRef = window.firebaseRef(firebaseDatabase, 'sessions');
+    window.firebaseOnValue(sessionsRef, (snapshot) => {
+      const data = snapshot.val();
+      sessions = {};
+      if (data) {
+        Object.keys(data).forEach(key => {
+          sessions[key] = data[key];
+        });
+      }
+      renderAdminSessions();
+    });
   } catch (e) {
     console.error("Error loading sessions:", e);
   }
@@ -526,8 +587,14 @@ function showAdminQADashboard(sessionId) {
       clearTimeout(notificationTimeout);
     }
   }
+  // Show timer
+  const timerElement = document.getElementById('session-timer');
+  if (timerElement) {
+    timerElement.style.display = 'inline-block';
+  }
   document.getElementById("admin-qa-dashboard").classList.remove("hidden");
   fetchQuestionsFromServer();
+  startSessionTimer(currentSessionId);
   lucide.createIcons();
 }
 
@@ -540,10 +607,22 @@ function showParticipantView(sessionId) {
   }
   document.getElementById("participant-dark-view").classList.remove("hidden");
   fetchQuestionsFromServer();
+  startSessionTimer(currentSessionId);
   lucide.createIcons();
 }
 
 function hideAllPages() {
+  // Clear timer when leaving a session
+  if (timerInterval) {
+    clearInterval(timerInterval);
+    timerInterval = null;
+  }
+  // Hide timer
+  const timerElement = document.getElementById('session-timer');
+  if (timerElement) {
+    timerElement.style.display = 'none';
+  }
+  
   const pages = ["landing-page", "master-dashboard", "session-management-page", "admin-qa-dashboard", "participant-dark-view", "admin-auth-page"];
   pages.forEach(id => {
     const el = document.getElementById(id);
@@ -615,16 +694,20 @@ async function joinSessionByCode() {
   btn.innerHTML = "...";
 
   try {
-    const response = await fetch(`${API_URL}?action=join_session&code=${code}`);
-    const result = await response.json();
+    await waitForFirebase();
+    const sessionRef = window.firebaseRef(firebaseDatabase, `sessions/${code}`);
+    const snapshot = await new Promise((resolve) => {
+      window.firebaseOnValue(sessionRef, resolve, { onlyOnce: true });
+    });
+    const sessionData = snapshot.val();
 
-    if (result.status === "success") {
-      sessions[code] = { id: code, shortCode: code, name: result.session_name, questions: [] };
+    if (sessionData) {
+      sessions[code] = { id: code, shortCode: code, name: sessionData.name, questions: [] };
       currentSessionId = code;
       window.location.hash = code; // Set hash in uppercase
       showParticipantView(code);
     } else {
-      alert(result.message);
+      alert("Sesi tidak ditemukan.");
     }
   } catch (error) {
     alert("Gagal terhubung ke server.");
@@ -699,7 +782,14 @@ async function confirmCreateSession() {
   
   const code = Math.random().toString(36).substring(2, 8).toUpperCase();
   try {
-    await fetch(`${API_URL}?action=create_session&code=${code}&name=${encodeURIComponent(name)}`);
+    await waitForFirebase();
+    const sessionRef = window.firebaseRef(firebaseDatabase, `sessions/${code}`);
+    await window.firebaseSet(sessionRef, {
+      id: code,
+      shortCode: code,
+      name: name,
+      createdAt: Date.now()
+    });
     await loadSessions(); // Reload sessions from server
     hideCreateSessionModal();
     renderAdminSessions();
@@ -711,7 +801,9 @@ async function confirmCreateSession() {
 async function deleteSession(id) {
   if (confirm("Hapus sesi ini?")) {
     try {
-      await fetch(`${API_URL}?action=delete_session&code=${id}`);
+      await waitForFirebase();
+      const sessionRef = window.firebaseRef(firebaseDatabase, `sessions/${id}`);
+      await window.firebaseSet(sessionRef, null);
       await loadSessions(); // Reload sessions from server
       renderAdminSessions();
     } catch (e) {
