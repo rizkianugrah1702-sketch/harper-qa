@@ -991,30 +991,40 @@ async function fetchQuestionsFromServer() {
     await waitForFirebase();
     const sessionQuestionsRef = window.firebaseRef(firebaseDatabase, `sessions/${currentSessionId.toUpperCase()}/questions`);
     let initialLoadComplete = false;
+    let lastKnownQuestionIds = new Set(); // Track known question IDs to detect new ones
     
-    // Set up real-time value listener
+    // Set up real-time value listener (INSTAN update pertanyaan & balasan!)
     questionsListenerUnsubscribe = window.firebaseOnValue(sessionQuestionsRef, (snapshot) => {
       const questionsData = [];
-      let questionCount = 0;
+      const currentQuestionIds = new Set();
+      let hasNewQuestion = false;
       
       snapshot.forEach((childSnapshot) => {
+        const qId = childSnapshot.key;
         const data = childSnapshot.val();
+        currentQuestionIds.add(qId);
+        
         questionsData.push({
-          id: childSnapshot.key, // Firebase unique key!
+          id: qId, // Firebase unique key!
           text: data.text,
           sender: data.name || "Anonymous",
           upvotes: data.upvotes || 0,
           timestamp: data.timestamp,
-          comments: data.replies ? Object.values(data.replies) : [],
+          comments: data.replies ? Object.values(data.replies) : [], // Always include all replies!
           reactions: data.reactions || {}
         });
-        questionCount++;
+        
+        // 3. HANYA NOTIFIKASI UNTUK PERTANYAAN BARU DARI AUDIENS!
+        if (initialLoadComplete && !lastKnownQuestionIds.has(qId) && isAdmin) {
+          // Pastikan pertanyaan benar-benar baru (timestamp within 3 seconds)
+          if (data.timestamp && (Date.now() - data.timestamp < 3000)) {
+            hasNewQuestion = true;
+          }
+        }
       });
       
-      // Track question count changes (for notifications) only after initial load
-      const lastCount = lastQuestionCountPerSession[currentSessionId] || 0;
-      if (initialLoadComplete && questionCount > lastCount && isAdmin) {
-        lastQuestionCountPerSession[currentSessionId] = questionCount;
+      // Jika ada pertanyaan baru, mainkan suara dan tandai unread
+      if (hasNewQuestion) {
         // Play notification sound
         try {
           notificationAudio.currentTime = 0;
@@ -1034,6 +1044,9 @@ async function fetchQuestionsFromServer() {
         }
       }
       
+      // Update known question IDs
+      lastKnownQuestionIds = currentQuestionIds;
+      
       // Mark initial load complete
       if (!initialLoadComplete) {
         initialLoadComplete = true;
@@ -1050,7 +1063,7 @@ async function fetchQuestionsFromServer() {
       }
 
       sessions[currentSessionId].questions = questionsData;
-      renderQuestions();
+      renderQuestions(); // Render INSTAN!
       
       // Kembalikan fokus jika ada (exclude range type)
       if (isTyping && focusedId && document.getElementById(focusedId)?.type !== "range") {
