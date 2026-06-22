@@ -1164,23 +1164,14 @@ async function submitComment(qId) {
   const text = input.value.trim();
   if (!text) return;
 
-  // 2. CEGAH DOUBLE CLICK: Dapatkan tombol dan nonaktifkan
-  const button = input?.nextElementSibling;
-  const originalButtonText = button ? button.innerText : "Balas";
+  // 2. CEGAH DOUBLE CLICK: Dapatkan tombol dengan lebih aman (by ID or parent)
+  const commentContainer = input?.parentElement;
+  const button = commentContainer?.querySelector('button');
+  const originalButtonHTML = button ? button.innerHTML : '<i data-lucide="send" class="w-4 h-4"></i> Balas';
   if (button) {
     button.disabled = true;
-    button.innerText = "Mengirim...";
-  }
-
-  const questionsList = Array.isArray(sessions[currentSessionId]?.questions) ? sessions[currentSessionId].questions : [];
-  const question = questionsList.find(q => q.id === qId);
-  if (!question) {
-    // Kembalikan tombol jika pertanyaan tidak ditemukan
-    if (button) {
-      button.disabled = false;
-      button.innerText = originalButtonText;
-    }
-    return;
+    button.innerHTML = '<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i> Mengirim...';
+    lucide.createIcons(); // Update icon
   }
 
   try {
@@ -1189,7 +1180,7 @@ async function submitComment(qId) {
     
     await waitForFirebase();
     const repliesRef = window.firebaseRef(firebaseDatabase, `sessions/${currentSessionId.toUpperCase()}/questions/${qId}/replies`);
-    window.firebasePush(repliesRef, {
+    await window.firebasePush(repliesRef, {
       sender: senderName,
       text: text,
       timestamp: Date.now()
@@ -1203,7 +1194,8 @@ async function submitComment(qId) {
     // 2 & 4: PASTIKAN TOMBOL KEMBALI NORMAL SETIAP KONDISI (try atau catch)
     if (button) {
       button.disabled = false;
-      button.innerText = originalButtonText;
+      button.innerHTML = originalButtonHTML;
+      lucide.createIcons(); // Update icon back
     }
   }
 }
