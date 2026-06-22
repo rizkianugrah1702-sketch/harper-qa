@@ -158,14 +158,35 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  // Custom sound file listener (uses URL.createObjectURL instead of Base64 localStorage)
+  // Custom sound file listener with size validation and Firebase sync
   const soundFileInput = document.getElementById('notify-sound-file');
   if (soundFileInput) {
-    soundFileInput.addEventListener('change', (e) => {
+    soundFileInput.addEventListener('change', async (e) => {
       const file = e.target.files[0];
       if (file) {
-        const objectURL = URL.createObjectURL(file);
-        notificationAudio.src = objectURL;
+        // Validate file size (max 1MB = 1 * 1024 * 1024 bytes)
+        if (file.size > 1048576) {
+          alert("Ukuran file terlalu besar! Mohon gunakan file MP3 di bawah 1MB agar database tetap ringan.");
+          return;
+        }
+        
+        // Convert file to Base64
+        const reader = new FileReader();
+        reader.onload = async (event) => {
+          const base64String = event.target.result;
+          
+          // Save to Firebase
+          try {
+            await waitForFirebase();
+            await window.firebaseSet(window.firebaseRef(window.firebaseDatabase, 'systemSettings/customAudio'), base64String);
+            
+            // Apply to audio element
+            notificationAudio.src = base64String;
+          } catch (err) {
+            console.error("Gagal menyimpan nada dering ke Firebase:", err);
+          }
+        };
+        reader.readAsDataURL(file);
       }
     });
   }
@@ -184,6 +205,11 @@ async function loadSystemSettings() {
       systemSettings = { ...systemSettings, ...data };
       localStorage.setItem("qa_system_settings", JSON.stringify(systemSettings));
       applySystemSettings();
+      
+      // Apply customAudio from Firebase
+      if (data.customAudio) {
+        notificationAudio.src = data.customAudio;
+      }
     }
   }, (error) => {
     console.error("Error listening to Firebase changes:", error);
