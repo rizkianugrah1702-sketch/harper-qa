@@ -9,6 +9,33 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.23/jspdf.plugin.autotable.min.js"></script>
+    <!-- Firebase SDK -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-app.js";
+        import { getDatabase, ref, onValue, set } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-database.js";
+        import { getAnalytics } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-analytics.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyAuZHSy8naz9gQKTaIV79MdN2ua_RvVjLY",
+            authDomain: "tanyaaja-harper.firebaseapp.com",
+            databaseURL: "https://tanyaaja-harper-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "tanyaaja-harper",
+            storageBucket: "tanyaaja-harper.firebasestorage.app",
+            messagingSenderId: "247396388121",
+            appId: "1:247396388121:web:fc9f253bce990269b5c988",
+            measurementId: "G-WB97QZ2Z8J"
+        };
+
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const database = getDatabase(app);
+        const analytics = getAnalytics(app);
+        window.firebaseApp = app;
+        window.firebaseDatabase = database;
+        window.firebaseRef = ref;
+        window.firebaseOnValue = onValue;
+        window.firebaseSet = set;
+    </script>
     <link rel="stylesheet" href="styles.css">
     <style>
         :root {
