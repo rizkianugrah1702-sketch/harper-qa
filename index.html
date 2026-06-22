@@ -660,6 +660,10 @@
                         <i data-lucide="lock" class="w-5 h-5"></i>
                         Login Page
                     </button>
+                    <button onclick="switchSettingsTab('notifications')" id="tab-btn-notifications" class="settings-tab-btn flex items-center gap-4 px-5 py-4 rounded-2xl font-black text-sm transition-all text-slate-400 hover:text-slate-600 hover:bg-white/50">
+                        <i data-lucide="bell" class="w-5 h-5"></i>
+                        Pengaturan Notifikasi
+                    </button>
                 </aside>
 
                 <!-- Content Area -->
@@ -805,6 +809,45 @@
                                     <button onclick="document.getElementById('sys-upload-login-bg').click()" class="w-full bg-slate-900 text-white py-4 rounded-2xl font-black text-lg hover:bg-black transition-all flex items-center justify-center gap-3 shadow-xl shadow-slate-200">
                                         <i data-lucide="upload-cloud" class="w-6 h-6"></i>
                                         Upload Gambar Background Login
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Notifications Section -->
+                    <div id="settings-section-notifications" class="settings-section hidden space-y-10 animate-fade-in">
+                        <div class="space-y-2">
+                            <h4 class="text-2xl font-black text-slate-900 tracking-tight">Pengaturan Notifikasi</h4>
+                            <p class="text-slate-500 font-medium">Atur volume dan nada dering notifikasi untuk pertanyaan baru.</p>
+                        </div>
+
+                        <div class="space-y-8">
+                            <!-- Volume Slider -->
+                            <div class="space-y-3">
+                                <label class="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">Volume Notifikasi</label>
+                                <div class="flex items-center gap-4 p-6 bg-slate-50 rounded-[2rem] border-2 border-slate-100">
+                                    <i data-lucide="volume-2" class="w-6 h-6 text-slate-400"></i>
+                                    <input type="range" id="notify-volume" min="0" max="1" step="0.1" value="0.5" class="flex-1 accent-orange-600 cursor-pointer">
+                                    <span id="volume-value" class="w-16 text-center font-bold text-slate-600">50%</span>
+                                </div>
+                            </div>
+
+                            <!-- Custom Sound Upload -->
+                            <div class="space-y-3">
+                                <label class="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">Nada Dering Kustom</label>
+                                <div class="p-6 bg-slate-50 rounded-[2rem] border-2 border-dashed border-slate-200 space-y-4">
+                                    <div class="flex items-center gap-4">
+                                        <i data-lucide="music" class="w-8 h-8 text-slate-400"></i>
+                                        <div class="flex-1">
+                                            <p class="font-bold text-slate-900">Upload Nada Dering</p>
+                                            <p class="text-xs text-slate-400">Format file: MP3</p>
+                                        </div>
+                                    </div>
+                                    <input type="file" id="notify-sound-file" accept="audio/mp3, audio/mpeg" class="hidden">
+                                    <button onclick="document.getElementById('notify-sound-file').click()" class="w-full bg-slate-900 text-white py-3 rounded-xl font-bold hover:bg-black transition-all flex items-center justify-center gap-2 text-sm">
+                                        <i data-lucide="upload" class="w-4 h-4"></i>
+                                        Upload File MP3
                                     </button>
                                 </div>
                             </div>
