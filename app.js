@@ -3,6 +3,26 @@ const API_URL = "https://script.google.com/macros/s/AKfycbwm2pHn9-iSFOVmBDu1skr1
 const SESSION_DURATION = 24 * 60 * 60 * 1000;
 const DEFAULT_SESSION_ID = "default-session";
 
+// --- Firebase Helpers ---
+let firebaseDatabase = null;
+let systemSettingsRef = null;
+
+// Wait for Firebase to be initialized
+function waitForFirebase() {
+    return new Promise((resolve, reject) => {
+        const checkFirebase = () => {
+            if (window.firebaseDatabase && window.firebaseRef && window.firebaseOnValue && window.firebaseSet) {
+                firebaseDatabase = window.firebaseDatabase;
+                systemSettingsRef = window.firebaseRef(firebaseDatabase, 'systemSettings');
+                resolve();
+            } else {
+                setTimeout(checkFirebase, 100);
+            }
+        };
+        checkFirebase();
+    });
+}
+
 // --- STATE ---
 let sessions = {};
 let users = [];
@@ -46,18 +66,41 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 
 async function loadSystemSettings() {
+  await waitForFirebase();
+  
+  // Listen for real-time changes from Firebase
+  window.firebaseOnValue(systemSettingsRef, (snapshot) => {
+    const data = snapshot.val();
+    if (data) {
+      systemSettings = { ...systemSettings, ...data };
+      localStorage.setItem("qa_system_settings", JSON.stringify(systemSettings));
+      applySystemSettings();
+    }
+  }, (error) => {
+    console.error("Error listening to Firebase changes:", error);
+    // Fallback to Google Apps Script if Firebase fails
+    loadFromGoogleAppsScript();
+  });
+  
+  // Also try to load from Google Apps Script for initial data
+  loadFromGoogleAppsScript();
+}
+
+async function loadFromGoogleAppsScript() {
   try {
     const response = await fetch(`${API_URL}?action=get_system_settings`);
     const settings = await response.json();
     if (settings && !settings.status) {
-      // Gabungkan dengan settings lokal, prioritaskan lokal
-      systemSettings = { ...settings, ...systemSettings };
-      // Simpan ke lokal untuk cepat
+      systemSettings = { ...systemSettings, ...settings };
       localStorage.setItem("qa_system_settings", JSON.stringify(systemSettings));
+      applySystemSettings();
+      // Also update Firebase with this data if needed
+      if (systemSettingsRef) {
+        window.firebaseSet(systemSettingsRef, systemSettings);
+      }
     }
   } catch (e) {
-    console.error("Error loading system settings from server:", e);
-    // Tetap gunakan lokal
+    console.error("Error loading system settings from Google Apps Script:", e);
   }
 }
 
@@ -170,16 +213,26 @@ async function saveSystemSettings() {
   localStorage.setItem("qa_system_settings", JSON.stringify(systemSettings));
   applySystemSettings();
   
+  // Save to Firebase for real-time sync
   try {
-    console.log("Saving system settings to server...");
+    await waitForFirebase();
+    window.firebaseSet(systemSettingsRef, systemSettings);
+    console.log("Settings saved to Firebase successfully!");
+  } catch (e) {
+    console.error("Error saving to Firebase:", e);
+  }
+  
+  // Also save to Google Apps Script for backup
+  try {
+    console.log("Saving system settings to Google Apps Script...");
     const params = new URLSearchParams();
     params.append("action", "save_system_settings");
     params.append("settings", JSON.stringify(systemSettings));
     await fetch(`${API_URL}?${params.toString()}`);
-    console.log("Settings saved to server successfully!");
+    console.log("Settings saved to Google Apps Script successfully!");
   } catch (e) {
-    console.error("Error saving to server:", e);
-    // Tidak usah alert, karena sudah tersimpan lokal
+    console.error("Error saving to Google Apps Script:", e);
+    // Tidak usah alert, karena sudah tersimpan lokal dan Firebase
   }
 }
 
