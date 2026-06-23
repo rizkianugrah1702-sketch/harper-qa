@@ -305,6 +305,7 @@ async function loadSessions() {
         }
       }
       renderAdminSessions();
+      updateAdminUI();
     });
   } catch (e) {
     console.error("Error loading sessions:", e);
