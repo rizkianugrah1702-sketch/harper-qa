@@ -45,21 +45,30 @@ function waitForFirebase() {
 async function getOnce(ref) {
   console.log("getOnce called with ref:", ref);
   return new Promise((resolve, reject) => {
-    const timeoutId = setTimeout(() => {
-      reject(new Error("getOnce timeout!"));
-    }, 5000);
+    let unsubscribe; // Declare first to be hoisting safe
+    let timeoutId; // Declare timeout first
     
-    const unsubscribe = window.firebaseOnValue(ref, (snapshot) => {
+    unsubscribe = window.firebaseOnValue(ref, (snapshot) => {
       console.log("getOnce got snapshot:", snapshot);
       clearTimeout(timeoutId);
       if (typeof unsubscribe === "function") {
-        unsubscribe();
+        unsubscribe(); // Now safe to call
       }
       resolve(snapshot);
     }, (error) => {
       clearTimeout(timeoutId);
+      if (typeof unsubscribe === "function") {
+        unsubscribe();
+      }
       reject(error);
     });
+    
+    timeoutId = setTimeout(() => {
+      if (typeof unsubscribe === "function") {
+        unsubscribe();
+      }
+      reject(new Error("getOnce timeout!"));
+    }, 5000);
   });
 }
 
@@ -623,7 +632,7 @@ async function loadUsers() {
     const data = snapshot.val();
     console.log("Initial users data:", data);
     
-    if (!data || !data.admin) {
+    if (!snapshot.exists() || !data || !data.admin) {
       // Create default admin
       console.log("Creating default admin...");
       const defaultAdminRef = window.firebaseRef(firebaseDatabase, 'users/admin');
@@ -708,7 +717,7 @@ async function addNewUser(event) {
     const snapshot = await getOnce(userRef);
     console.log("User exists snapshot:", snapshot);
     
-    if (snapshot.val()) {
+    if (snapshot.exists() && snapshot.val()) {
       alert("Username sudah ada!");
       return;
     }
