@@ -74,87 +74,54 @@ async function getOnce(ref) {
 }
 
 async function startSessionTimer(sessionId) {
-  // 1. KUNCI LOGIKA TIMER OTOMATIS: Cek ID sesi terlebih dahulu!
+  // 1. Cek ID sesi terlebih dahulu
   if (!sessionId || sessionId === "undefined" || sessionId === undefined) {
     console.log("Timer dihentikan: ID sesi tidak valid.");
     return;
   }
 
+  // 2. Bersihkan timer lama jika ada
   if (timerInterval) {
     clearInterval(timerInterval);
     timerInterval = null;
   }
 
-  await waitForFirebase();
-  const sessionRef = window.firebaseRef(firebaseDatabase, `sessions/${sessionId}`);
-
-  // Cek apakah sesi masih ada di Firebase sebelum melanjutkan
-  const snapshot = await getOnce(sessionRef);
-  let sessionData = snapshot.val();
-  
-  // Jika sesi tidak ada di Firebase, berhenti!
-  if (!sessionData) {
-    console.log(`Timer dihentikan: Sesi ${sessionId} tidak ditemukan di Firebase.`);
-    return;
-  }
-
-  let createdAt;
-  if (!sessionData.createdAt) {
-    createdAt = Date.now();
-    await window.firebaseSet(window.firebaseRef(firebaseDatabase, `sessions/${sessionId}/createdAt`), createdAt);
-  } else {
-    createdAt = sessionData.createdAt;
-  }
-
-  const totalDuration = 12 * 60 * 60 * 1000; // 12 hours in ms
+  // 3. Cari elemen timer di DOM
   const timerElement = document.getElementById('session-timer');
   if (timerElement) {
     timerElement.style.display = 'inline-block';
   }
 
-  // Timer function dengan pengaman tambahan
-  const updateTimer = async () => {
-    // Pengaman ekstra: Cek kembali ID sesi setiap detik
-    if (!sessionId || sessionId === "undefined") {
-      clearInterval(timerInterval);
-      timerInterval = null;
-      return;
-    }
-
-    const expiryTime = createdAt + totalDuration;
-    let sisaWaktu = expiryTime - Date.now();
-
-    if (sisaWaktu <= 0) {
-      // Cek sekali lagi apakah sesi masih ada sebelum menghapus
-      const checkSnapshot = await getOnce(sessionRef);
-      if (!checkSnapshot.val()) {
-        clearInterval(timerInterval);
-        timerInterval = null;
-        return;
-      }
-
-      const questionsRef = window.firebaseRef(firebaseDatabase, `sessions/${sessionId}/questions`);
-      await window.firebaseSet(questionsRef, null);
-
-      const newCreatedAt = Date.now();
-      await window.firebaseSet(window.firebaseRef(firebaseDatabase, `sessions/${sessionId}/createdAt`), newCreatedAt);
-      
-      createdAt = newCreatedAt;
-      return;
-    }
-
-    const totalSeconds = Math.floor(sisaWaktu / 1000);
-    const hours = Math.floor(totalSeconds / 3600).toString().padStart(2, '0');
-    const minutes = Math.floor((totalSeconds % 3600) / 60).toString().padStart(2, '0');
-    const seconds = (totalSeconds % 60).toString().padStart(2, '0');
-
+  // 4. Fungsi update timer ke tengah malam
+  function updateSessionTimer() {
+    const sekarang = new Date();
+        
+    // Tentukan target: Jam 12 malam hari ini (alias jam 00:00 besok hari)
+    const targetTengahMalam = new Date();
+    targetTengahMalam.setHours(24, 0, 0, 0); // Mengatur otomatis ke jam 00:00:00 hari berikutnya
+    
+    // Hitung selisih dalam milidetik
+    const selisih = targetTengahMalam - sekarang;
+    
+    // Konversi selisih milidetik ke Jam, Menit, dan Detik
+    const jam = Math.floor((selisih % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+    const menit = Math.floor((selisih % (1000 * 60 * 60)) / (1000 * 60));
+    const detik = Math.floor((selisih % (1000 * 60)) / 1000);
+    
+    // Format agar selalu 2 digit (misal: 05:09:01)
+    const displayJam = jam.toString().padStart(2, '0');
+    const displayMenit = menit.toString().padStart(2, '0');
+    const displayDetik = detik.toString().padStart(2, '0');
+    
+    // Tampilkan ke elemen HTML timer
     if (timerElement) {
-      timerElement.textContent = `${hours}:${minutes}:${seconds}`;
+      timerElement.textContent = `${displayJam}:${displayMenit}:${displayDetik}`;
     }
-  };
+  }
 
-  updateTimer();
-  timerInterval = setInterval(updateTimer, 1000);
+  // 5. Jalankan fungsi timer
+  updateSessionTimer();
+  timerInterval = setInterval(updateSessionTimer, 1000);
 }
 
 // --- STATE ---
