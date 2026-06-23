@@ -979,6 +979,9 @@ async function fetchQuestionsFromServer() {
         };
       }
 
+      // Balik urutan dan urutkan berdasarkan timestamp agar pertanyaan terbaru di atas
+      questionsData.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+      
       sessions[currentSessionId].questions = questionsData;
       renderQuestions(); // Render INSTAN!
       
