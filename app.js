@@ -284,29 +284,45 @@ document.addEventListener("DOMContentLoaded", () => {
 async function loadSystemSettings() {
   await waitForFirebase();
   
-  // Listen for real-time changes from Firebase
-  window.firebaseOnValue(systemSettingsRef, (snapshot) => {
-    const data = snapshot.val();
-    console.log("System settings from Firebase:", data);
-    if (data) {
-      systemSettings = { ...systemSettings, ...data };
-      // Save settings to localStorage (without customAudio to avoid quota issues)
-      const settingsToSave = { ...systemSettings };
-      delete settingsToSave.customAudio;
-      localStorage.setItem("qa_system_settings", JSON.stringify(settingsToSave));
+  // Load settings from localStorage first
+  const savedSettings = localStorage.getItem("qa_system_settings");
+  if (savedSettings) {
+    try {
+      systemSettings = { ...systemSettings, ...JSON.parse(savedSettings) };
       applySystemSettings();
-      
-      // Apply customAudio from Firebase (with logging)
-      if (data.customAudio) {
-        console.log("Applying custom audio from Firebase");
-        notificationAudio.src = data.customAudio;
-      } else {
-        console.log("No custom audio found, using default");
-      }
+    } catch (e) {
+      console.error("Error parsing saved settings:", e);
     }
-  }, (error) => {
-    console.error("Error listening to Firebase changes:", error);
-  });
+  }
+  
+  // Listen for real-time changes from Firebase (fail gracefully)
+  try {
+    window.firebaseOnValue(systemSettingsRef, (snapshot) => {
+      const data = snapshot.val();
+      console.log("System settings from Firebase:", data);
+      if (data) {
+        systemSettings = { ...systemSettings, ...data };
+        // Save settings to localStorage (without customAudio to avoid quota issues)
+        const settingsToSave = { ...systemSettings };
+        delete settingsToSave.customAudio;
+        localStorage.setItem("qa_system_settings", JSON.stringify(settingsToSave));
+        applySystemSettings();
+        
+        // Apply customAudio from Firebase (with logging)
+        if (data.customAudio) {
+          console.log("Applying custom audio from Firebase");
+          notificationAudio.src = data.customAudio;
+        } else {
+          console.log("No custom audio found, using default");
+        }
+      }
+    }, (error) => {
+      console.warn("Firebase system settings access denied or error:", error);
+      // Fallback to localStorage only if Firebase access fails
+    });
+  } catch (e) {
+    console.warn("Failed to listen to system settings:", e);
+  }
 }
 
 
@@ -368,9 +384,12 @@ async function loadSessions() {
       console.log("Listener Firebase dipicu! Total sesi valid:", Object.keys(sessions).length);
       renderAdminSessions();
       updateAdminUI();
+    }, (error) => {
+      console.warn("Firebase sessions access denied or error:", error);
+      // Fallback: if we can't access Firebase, just show existing sessions (if any)
     });
   } catch (e) {
-    console.error("Error loading sessions:", e);
+    console.warn("Error loading sessions:", e);
   }
 }
 
