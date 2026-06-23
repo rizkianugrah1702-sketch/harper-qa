@@ -1,6 +1,7 @@
 // --- CONSTANTS ---
 const SESSION_DURATION = 24 * 60 * 60 * 1000;
 const DEFAULT_SESSION_ID = "default-session";
+let sessionsListenerUnsubscribe = null; // Untuk menyimpan fungsi unsubscribe listener sesi
 
 // --- Notification Audio ---
 let notificationAudio = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-500.wav');
@@ -286,8 +287,12 @@ async function initApp() {
 async function loadSessions() {
   try {
     await waitForFirebase();
+    // Hapus listener lama jika ada untuk menghindari duplikat
+    if (sessionsListenerUnsubscribe) {
+      sessionsListenerUnsubscribe();
+    }
     const sessionsRef = window.firebaseRef(firebaseDatabase, 'sessions');
-    window.firebaseOnValue(sessionsRef, async (snapshot) => {
+    sessionsListenerUnsubscribe = window.firebaseOnValue(sessionsRef, async (snapshot) => {
       const data = snapshot.val();
       sessions = {};
       if (data) {
@@ -304,6 +309,7 @@ async function loadSessions() {
           }
         }
       }
+      console.log("Listener Firebase dipicu! Total sesi valid:", Object.keys(sessions).length);
       renderAdminSessions();
       updateAdminUI();
     });
@@ -837,9 +843,7 @@ async function confirmCreateSession() {
       isUnread: false,
       questions: {} // Initialize empty questions object
     });
-    await loadSessions(); // Reload sessions from server
     hideCreateSessionModal();
-    renderAdminSessions();
   } catch (e) {
     alert("Gagal membuat sesi.");
   }
@@ -867,9 +871,6 @@ async function deleteSession(id) {
         }
         hideAllPages();
       }
-      
-      await loadSessions();
-      renderAdminSessions();
     } catch (e) {
       alert("Gagal menghapus sesi.");
     }
@@ -1277,6 +1278,7 @@ function selectEmoji(emoji) {
 function updateAdminUI() {
   // Populate Dashboard Stats
   const totalSessionsEl = document.getElementById("dashboard-total-sessions");
+  console.log("updateAdminUI() dipanggil! Total sesi saat ini:", Object.keys(sessions).length, "Elemen ditemukan:", !!totalSessionsEl);
   if (totalSessionsEl) {
     totalSessionsEl.textContent = Object.keys(sessions).length;
   }
