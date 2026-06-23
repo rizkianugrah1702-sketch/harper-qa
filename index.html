@@ -552,76 +552,6 @@
         </div>
     </div>
 
-    <!-- User Management Modal -->
-    <div id="user-management-modal" class="fixed inset-0 bg-black/60 z-[250] hidden flex items-center justify-center p-4 backdrop-blur-sm">
-        <div class="bg-white rounded-[2.5rem] p-8 md:p-10 max-w-2xl w-full space-y-8 shadow-2xl overflow-hidden flex flex-col max-h-[90vh] border border-slate-100">
-            <div class="flex justify-between items-start shrink-0">
-                <div class="flex items-center gap-4">
-                    <div class="bg-slate-900 p-3 rounded-2xl shadow-lg">
-                        <i data-lucide="users" class="text-white w-6 h-6"></i>
-                    </div>
-                    <div>
-                        <h3 class="text-2xl font-black text-slate-900 tracking-tight">Manajemen User</h3>
-                        <p class="text-slate-500 text-sm font-medium">Atur hak akses admin dan user chat.</p>
-                    </div>
-                </div>
-                <button onclick="hideUserManagement()" class="text-slate-300 hover:text-slate-900 p-2 transition-colors">
-                    <i data-lucide="x" class="w-7 h-7"></i>
-                </button>
-            </div>
-
-            <div class="space-y-6 shrink-0 bg-slate-50/50 p-8 rounded-[2rem] border-2 border-slate-100/50">
-                <h4 class="font-black text-slate-900 uppercase text-xs tracking-[0.2em] flex items-center gap-2 opacity-50">
-                    Tambah User Baru
-                </h4>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div class="space-y-2">
-                        <label class="text-sm font-bold text-slate-700 ml-1">Username</label>
-                        <div class="relative">
-                            <i data-lucide="user" class="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 w-5 h-5"></i>
-                            <input type="text" id="new-user-username" class="w-full pl-12 pr-4 py-3.5 bg-white border-2 border-transparent rounded-2xl focus:border-slate-900 outline-none transition-all font-medium text-slate-800" placeholder="Username">
-                        </div>
-                    </div>
-                    <div class="space-y-2">
-                        <label class="text-sm font-bold text-slate-700 ml-1">Password</label>
-                        <div class="relative">
-                            <i data-lucide="key-round" class="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 w-5 h-5"></i>
-                            <input type="password" id="new-user-password" class="w-full pl-12 pr-4 py-3.5 bg-white border-2 border-transparent rounded-2xl focus:border-slate-900 outline-none transition-all font-medium text-slate-800" placeholder="••••••••">
-                        </div>
-                    </div>
-                </div>
-                <div class="space-y-2">
-                    <label class="text-sm font-bold text-slate-700 ml-1">Role Akses</label>
-                    <div class="grid grid-cols-2 gap-3">
-                        <button onclick="selectRoleInModal('admin')" id="role-btn-admin" class="role-selector-btn flex flex-col items-start p-4 rounded-2xl border-2 transition-all text-left bg-white border-slate-100 hover:border-slate-200">
-                            <span class="font-black text-slate-900">Admin</span>
-                            <span class="text-xs text-slate-400 font-bold">Semua Kontrol (Full Access)</span>
-                        </button>
-                        <button onclick="selectRoleInModal('user')" id="role-btn-user" class="role-selector-btn flex flex-col items-start p-4 rounded-2xl border-2 transition-all text-left bg-white border-slate-100 hover:border-slate-200">
-                            <span class="font-black text-slate-900">User</span>
-                            <span class="text-xs text-slate-400 font-bold">Hanya Chat (Chat Only)</span>
-                        </button>
-                        <input type="hidden" id="new-user-role" value="user">
-                    </div>
-                </div>
-                <button onclick="hideUserManagement(); showMasterDashboard();" class="w-full main-primary text-white py-4 rounded-2xl font-black text-lg hover:opacity-90 transition-all shadow-xl shadow-orange-200 flex items-center justify-center gap-3">
-                    <i data-lucide="arrow-left" class="w-6 h-6"></i>
-                    Kembali ke Master Dashboard
-                </button>
-            </div>
-
-            <div class="flex-1 overflow-y-auto custom-scrollbar pr-2 space-y-4">
-                <div class="flex items-center justify-between mb-4 px-2">
-                    <h4 class="font-black text-slate-900 uppercase text-[10px] tracking-[0.2em] opacity-50">Daftar User Aktif</h4>
-                    <span id="user-count-badge" class="bg-slate-100 text-slate-600 px-4 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest">0 USER</span>
-                </div>
-                <div id="user-list-container" class="grid grid-cols-1 gap-4">
-                    <!-- User list will be rendered here as modern cards -->
-                </div>
-            </div>
-        </div>
-    </div>
-
     <!-- System Settings Modal -->
     <div id="system-settings-modal" class="fixed inset-0 bg-black/60 z-[260] hidden flex items-center justify-center p-4 backdrop-blur-sm">
         <div class="bg-white rounded-[2.5rem] max-w-5xl w-full h-[85vh] shadow-2xl overflow-hidden flex flex-col border border-slate-100 animate-scale-in">
@@ -884,11 +814,7 @@
                             </div>
                             <div class="space-y-2">
                                 <label class="text-sm font-bold text-slate-700 ml-1">Role Akses</label>
-                                <div class="grid grid-cols-3 gap-3">
-                                    <button onclick="selectRoleInModal('user')" id="role-btn-user" class="role-selector-btn flex flex-col items-start p-4 rounded-2xl border-2 transition-all text-left bg-white border-slate-100 hover:border-slate-200">
-                                        <span class="font-black text-slate-900">User</span>
-                                        <span class="text-xs text-slate-400 font-bold">Hanya Chat</span>
-                                    </button>
+                                <div class="grid grid-cols-2 gap-3">
                                     <button onclick="selectRoleInModal('admin')" id="role-btn-admin" class="role-selector-btn flex flex-col items-start p-4 rounded-2xl border-2 transition-all text-left bg-white border-slate-100 hover:border-slate-200">
                                         <span class="font-black text-slate-900">Admin</span>
                                         <span class="text-xs text-slate-400 font-bold">Kelola Sesi</span>
@@ -897,7 +823,7 @@
                                         <span class="font-black text-slate-900">Administrator</span>
                                         <span class="text-xs text-slate-400 font-bold">Full Access</span>
                                     </button>
-                                    <input type="hidden" id="new-user-role" value="user">
+                                    <input type="hidden" id="new-user-role" value="admin">
                                 </div>
                             </div>
                             <button onclick="addNewUser()" class="w-full main-primary text-white py-4 rounded-2xl font-black text-lg hover:opacity-90 transition-all shadow-xl shadow-orange-200 flex items-center justify-center gap-3">
