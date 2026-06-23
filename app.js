@@ -20,11 +20,19 @@ let sessionTimerRef = null;
 // Wait for Firebase to be initialized
 function waitForFirebase() {
     return new Promise((resolve, reject) => {
+        let attempts = 0;
+        const maxAttempts = 100; // 10 seconds timeout
+        
         const checkFirebase = () => {
+            attempts++;
+            console.log(`Waiting for Firebase... Attempt ${attempts}`);
             if (window.firebaseDatabase && window.firebaseRef && window.firebaseOnValue && window.firebaseSet && window.firebasePush) {
                 firebaseDatabase = window.firebaseDatabase;
                 systemSettingsRef = window.firebaseRef(firebaseDatabase, 'systemSettings');
+                console.log("Firebase initialized!");
                 resolve();
+            } else if (attempts >= maxAttempts) {
+                reject(new Error("Firebase initialization timeout!"));
             } else {
                 setTimeout(checkFirebase, 100);
             }
@@ -35,13 +43,22 @@ function waitForFirebase() {
 
 // Helper: one-time read from Firebase
 async function getOnce(ref) {
-  return new Promise((resolve) => {
-    let unsubscribe = null;
-    unsubscribe = window.firebaseOnValue(ref, (snapshot) => {
-      if (unsubscribe) {
+  console.log("getOnce called with ref:", ref);
+  return new Promise((resolve, reject) => {
+    const timeoutId = setTimeout(() => {
+      reject(new Error("getOnce timeout!"));
+    }, 5000);
+    
+    const unsubscribe = window.firebaseOnValue(ref, (snapshot) => {
+      console.log("getOnce got snapshot:", snapshot);
+      clearTimeout(timeoutId);
+      if (typeof unsubscribe === "function") {
         unsubscribe();
       }
       resolve(snapshot);
+    }, (error) => {
+      clearTimeout(timeoutId);
+      reject(error);
     });
   });
 }
@@ -594,27 +611,38 @@ async function showSessionManagement() {
 // --- USER MANAGEMENT ---
 
 async function loadUsers() {
+  console.log("loadUsers called!");
   try {
     await waitForFirebase();
+    console.log("Firebase ready for loadUsers!");
     const usersRef = window.firebaseRef(firebaseDatabase, 'users');
     
     // First, check if we need to create default admin
+    console.log("Checking default admin...");
     const snapshot = await getOnce(usersRef);
     const data = snapshot.val();
+    console.log("Initial users data:", data);
     
     if (!data || !data.admin) {
       // Create default admin
+      console.log("Creating default admin...");
       const defaultAdminRef = window.firebaseRef(firebaseDatabase, 'users/admin');
       await window.firebaseSet(defaultAdminRef, {
         username: "admin",
         password: "admin",
-        role: "administrator"
+        role: "administrator",
+        status: "Active",
+        createdAt: Date.now()
       });
+      console.log("Default admin created!");
     }
     
     // Now set up real-time listener
+    console.log("Setting up real-time listener for users...");
     window.firebaseOnValue(usersRef, (snapshot) => {
+      console.log("Users listener triggered!");
       const data = snapshot.val();
+      console.log("Updated users data:", data);
       users = [];
       if (data) {
         // Add all users
@@ -625,7 +653,10 @@ async function loadUsers() {
           });
         }
       }
+      console.log("Rendering users:", users);
       renderUsers();
+    }, (error) => {
+      console.error("Error in users listener:", error);
     });
   } catch (e) {
     console.error("Error loading users:", e);
@@ -667,11 +698,15 @@ async function addNewUser(event) {
       return;
     }
     
+    console.log("Waiting for Firebase...");
     await waitForFirebase();
+    console.log("Firebase ready!");
     const userRef = window.firebaseRef(firebaseDatabase, `users/${username}`);
     
     // Check if user already exists
+    console.log("Checking if user exists...");
     const snapshot = await getOnce(userRef);
+    console.log("User exists snapshot:", snapshot);
     
     if (snapshot.val()) {
       alert("Username sudah ada!");
@@ -679,18 +714,22 @@ async function addNewUser(event) {
     }
     
     // Create new user
+    console.log("Creating new user...");
     await window.firebaseSet(userRef, {
       username: username,
       password: password,
-      role: selectedRole
+      role: selectedRole,
+      status: "Active",
+      createdAt: Date.now()
     });
+    console.log("User saved to Firebase!");
     
     // Clear form
     usernameInput.value = "";
     passwordInput.value = "";
     selectRoleInModal("admin");
     
-    alert("User berhasil ditambahkan!");
+    alert("User baru berhasil ditambahkan!");
   } catch (e) {
     console.error("Error adding user:", e);
     alert("Gagal menambahkan user! Error: " + e.message);
