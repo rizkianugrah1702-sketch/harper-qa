@@ -49,16 +49,17 @@ async function getOnce(ref) {
     let timeoutId = null;
     
     timeoutId = setTimeout(() => {
-      isResolved = true;
-      reject(new Error("getOnce timeout!"));
+      if (!isResolved) {
+        isResolved = true;
+        reject(new Error("getOnce timeout!"));
+      }
     }, 5000);
     
-    const unsubscribe = window.firebaseOnValue(ref, (snapshot) => {
+    window.firebaseOnValue(ref, (snapshot) => {
       console.log("getOnce got snapshot:", snapshot);
       clearTimeout(timeoutId);
       if (!isResolved) {
         isResolved = true;
-        unsubscribe();
         resolve(snapshot);
       }
     }, (error) => {
@@ -66,7 +67,6 @@ async function getOnce(ref) {
       clearTimeout(timeoutId);
       if (!isResolved) {
         isResolved = true;
-        unsubscribe();
         reject(error);
       }
     });
