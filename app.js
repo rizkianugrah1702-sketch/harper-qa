@@ -150,7 +150,7 @@ let systemSettings = (() => {
 })();
 let currentUser = JSON.parse(localStorage.getItem("currentUser")) || null;
 let currentSessionId = getSessionFromUrl() || "";
-let isAdmin = currentUser && (currentUser.role === "admin" || currentUser.role === "user");
+let isAdmin = currentUser && (currentUser.role === "admin" || currentUser.role === "user" || currentUser.role === "administrator");
 let activeReactionQuestionId = null;
 let lastQuestionsJson = ""; // Untuk mendeteksi perubahan data
 let lastQuestionCountPerSession = {}; // Track last question count per session
@@ -385,10 +385,16 @@ async function saveSystemSettings() {
 }
 
 function showSystemSettings() {
-  if (currentUser && currentUser.role !== "admin") return alert("Hanya Admin yang bisa mengakses menu ini.");
+  if (currentUser && currentUser.role !== "admin" && currentUser.role !== "administrator") return alert("Hanya Admin yang bisa mengakses menu ini.");
   
   // Reset to first tab
   switchSettingsTab("branding");
+
+  // Show user management tab only if role is administrator
+  const userTabBtn = document.getElementById("tab-btn-users");
+  if (userTabBtn) {
+    userTabBtn.style.display = currentUser.role === "administrator" ? "flex" : "none";
+  }
 
   document.getElementById("sys-set-app-name").value = systemSettings.appName;
   document.getElementById("sys-set-primary-color").value = systemSettings.primaryColor;
@@ -410,6 +416,12 @@ function showSystemSettings() {
   document.getElementById("sys-set-font").value = systemSettings.appFont;
   
   document.getElementById("system-settings-modal").classList.remove("hidden");
+  
+  // Load users if administrator
+  if (currentUser.role === "administrator") {
+    loadUsers();
+  }
+  
   lucide.createIcons();
 }
 
@@ -502,10 +514,16 @@ function showLandingPage() {
 
 async function showMasterDashboard() {
   if (!isAdmin) return showLandingPage();
-  if (currentUser.role !== "admin") return showSessionManagement();
   hideAllPages();
   await loadSessions(); // Refresh sessions
   document.getElementById("master-dashboard").classList.remove("hidden");
+  
+  // Show/hide System Control card based on role
+  const systemControlCard = document.querySelector('div[onclick="showSystemSettings()"]');
+  if (systemControlCard) {
+    systemControlCard.style.display = currentUser.role === "administrator" ? "block" : "none";
+  }
+  
   updateAdminUI();
   lucide.createIcons();
 }
@@ -527,12 +545,9 @@ async function showSessionManagement() {
   document.getElementById("session-management-page").classList.remove("hidden");
   
   // Role-based UI visibility
-  const isSuper = currentUser.role === "admin";
+  const canManage = currentUser.role === "admin" || currentUser.role === "administrator";
   const createBtn = document.querySelector('button[onclick="showCreateSessionModal()"]');
-  if (createBtn) createBtn.style.display = isSuper ? "flex" : "none";
-
-  const settingsBtn = document.getElementById("nav-settings-btn");
-  if (settingsBtn) settingsBtn.style.display = isSuper ? "block" : "none";
+  if (createBtn) createBtn.style.display = canManage ? "flex" : "none";
 
   renderAdminSessions();
   lucide.createIcons();
@@ -540,19 +555,115 @@ async function showSessionManagement() {
 
 // --- USER MANAGEMENT ---
 
-async function showUserManagement() {
-  if (currentUser.role !== "admin") {
-    return alert("Hanya Admin yang bisa mengakses menu ini.");
+async function loadUsers() {
+  try {
+    await waitForFirebase();
+    const usersRef = window.firebaseRef(firebaseDatabase, 'users');
+    window.firebaseOnValue(usersRef, (snapshot) => {
+      const data = snapshot.val();
+      users = [];
+      if (data) {
+        // Add default admin if not exists
+        if (!data.admin) {
+          const defaultAdminRef = window.firebaseRef(firebaseDatabase, 'users/admin');
+          window.firebaseSet(defaultAdminRef, {
+            username: "admin",
+            password: "admin",
+            role: "administrator"
+          });
+          // Push to users array
+          users.push({ username: "admin", role: "administrator" });
+        }
+        
+        // Add all other users
+        for (const [username, userData] of Object.entries(data)) {
+          if (username !== "admin") {
+            users.push({
+              username: username,
+              role: userData.role || "user"
+            });
+          } else {
+            // Ensure admin has correct role
+            users.push({
+              username: "admin",
+              role: "administrator"
+            });
+          }
+        }
+      } else {
+        // If no users exist, create default admin
+        const defaultAdminRef = window.firebaseRef(firebaseDatabase, 'users/admin');
+        await window.firebaseSet(defaultAdminRef, {
+          username: "admin",
+          password: "admin",
+          role: "administrator"
+        });
+        users.push({ username: "admin", role: "administrator" });
+      }
+      renderUsers();
+    });
+  } catch (e) {
+    console.error("Error loading users:", e);
   }
-  await loadUsers();
-  document.getElementById("user-management-modal").classList.remove("hidden");
-  selectRoleInModal("user"); // Default role
-  renderUsers();
-  lucide.createIcons();
 }
 
-function hideUserManagement() {
-  document.getElementById("user-management-modal").classList.add("hidden");
+async function addNewUser() {
+  const username = document.getElementById("new-user-username").value.trim();
+  const password = document.getElementById("new-user-password").value.trim();
+  const role = document.getElementById("new-user-role").value;
+  
+  if (!username || !password) {
+    return alert("Username dan Password harus diisi!");
+  }
+  
+  try {
+    await waitForFirebase();
+    const userRef = window.firebaseRef(firebaseDatabase, `users/${username}`);
+    
+    // Check if user already exists
+    const snapshot = await new Promise((resolve) => {
+      window.firebaseOnValue(userRef, resolve, { onlyOnce: true });
+    });
+    
+    if (snapshot.val()) {
+      return alert("Username sudah ada!");
+    }
+    
+    // Create new user
+    await window.firebaseSet(userRef, {
+      username: username,
+      password: password,
+      role: role
+    });
+    
+    // Clear form
+    document.getElementById("new-user-username").value = "";
+    document.getElementById("new-user-password").value = "";
+    selectRoleInModal("user");
+    
+    alert("User berhasil ditambahkan!");
+  } catch (e) {
+    console.error("Error adding user:", e);
+    alert("Gagal menambahkan user!");
+  }
+}
+
+async function deleteUser(username) {
+  if (username === "admin") {
+    return alert("Tidak bisa menghapus akun administrator default!");
+  }
+  
+  if (confirm(`Hapus user ${username}?`)) {
+    try {
+      await waitForFirebase();
+      const userRef = window.firebaseRef(firebaseDatabase, `users/${username}`);
+      await window.firebaseSet(userRef, null);
+      alert("User berhasil dihapus!");
+    } catch (e) {
+      console.error("Error deleting user:", e);
+      alert("Gagal menghapus user!");
+    }
+  }
 }
 
 function selectRoleInModal(role) {
@@ -583,14 +694,14 @@ function renderUsers() {
     container.innerHTML = (users || []).map(u => `
       <div class="flex items-center justify-between p-4 bg-white border border-slate-100 rounded-2xl hover:border-slate-200 transition-all group">
         <div class="flex items-center gap-4">
-          <div class="w-12 h-12 ${u.role === "admin" ? "bg-purple-50 text-purple-600" : "bg-blue-50 text-blue-600"} rounded-xl flex items-center justify-center">
-            <i data-lucide="${u.role === "admin" ? "shield-check" : "message-square"}" class="w-6 h-6"></i>
+          <div class="w-12 h-12 ${u.role === "administrator" ? "bg-purple-50 text-purple-600" : u.role === "admin" ? "bg-orange-50 text-orange-600" : "bg-blue-50 text-blue-600"} rounded-xl flex items-center justify-center">
+            <i data-lucide="${u.role === "administrator" ? "shield" : u.role === "admin" ? "shield-check" : "message-square"}" class="w-6 h-6"></i>
           </div>
           <div>
             <h5 class="font-black text-slate-900">${escapeHtml(u.username)}</h5>
             <div class="flex items-center gap-2">
-              <span class="text-[10px] font-black uppercase tracking-widest ${u.role === "admin" ? "text-purple-500" : "text-blue-500"}">
-                ${u.role === "admin" ? "Admin" : "User"}
+              <span class="text-[10px] font-black uppercase tracking-widest ${u.role === "administrator" ? "text-purple-500" : u.role === "admin" ? "text-orange-500" : "text-blue-500"}">
+                ${u.role === "administrator" ? "Administrator" : u.role === "admin" ? "Admin" : "User"}
               </span>
               <span class="w-1 h-1 bg-slate-200 rounded-full"></span>
               <span class="text-[10px] font-bold text-slate-400 uppercase">Aktif</span>
@@ -699,16 +810,22 @@ async function loginAdminFromPage() {
   const user = document.getElementById("admin-page-username").value.trim();
   const pass = document.getElementById("admin-page-password").value.trim();
   
-  if (!user || !pass) return alert("Username dan Password harus diisi.");
+  if (!user || !pass) return alert("Username dan Password harus diisi!");
 
   const btn = document.querySelector('button[onclick="loginAdminFromPage()"]');
   btn.innerHTML = "Memproses...";
   btn.disabled = true;
 
-  // Default local login (admin/admin)
   try {
-    if (user === "admin" && pass === "admin") {
-      currentUser = { username: user, role: "admin" };
+    await waitForFirebase();
+    const userRef = window.firebaseRef(firebaseDatabase, `users/${user}`);
+    const snapshot = await new Promise((resolve) => {
+      window.firebaseOnValue(userRef, resolve, { onlyOnce: true });
+    });
+    const userData = snapshot.val();
+    
+    if (userData && userData.password === pass) {
+      currentUser = { username: user, role: userData.role || "user" };
       isAdmin = true;
       localStorage.setItem("currentUser", JSON.stringify(currentUser));
       showMasterDashboard();
@@ -807,7 +924,7 @@ function renderAdminSessions() {
           <button onclick="showQRCode('${s.id}')" class="p-3 text-slate-400 hover:main-text-primary hover:bg-orange-50 rounded-xl transition-all" title="Share & QR">
             <i data-lucide="share-2" class="w-5 h-5"></i>
           </button>
-          ${currentUser?.role === "admin" ? `
+          ${currentUser?.role === "admin" || currentUser?.role === "administrator" ? `
             <button onclick="deleteSession('${s.id}')" class="p-3 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all" title="Delete Session">
               <i data-lucide="trash-2" class="w-5 h-5"></i>
             </button>
