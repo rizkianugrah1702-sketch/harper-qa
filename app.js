@@ -456,13 +456,17 @@ function showSystemSettings() {
 }
 
 function switchSettingsTab(tabId) {
+  console.log("Switching to tab:", tabId);
   // Hide all sections
   const sections = document.querySelectorAll(".settings-section");
   sections.forEach(s => s.classList.add("hidden"));
 
   // Show active section
   const activeSection = document.getElementById(`settings-section-${tabId}`);
-  if (activeSection) activeSection.classList.remove("hidden");
+  if (activeSection) {
+    activeSection.classList.remove("hidden");
+    console.log("Active section shown:", activeSection.id);
+  }
 
   // Update buttons
   const buttons = document.querySelectorAll(".settings-tab-btn");
@@ -475,6 +479,18 @@ function switchSettingsTab(tabId) {
   if (activeBtn) {
     activeBtn.classList.add("active", "bg-white", "shadow-sm", "text-slate-900", "border", "border-slate-100");
     activeBtn.classList.remove("text-slate-400");
+  }
+  
+  if (tabId === "users") {
+    selectRoleInModal("admin");
+    // Attach event listener for add new user button
+    const addBtn = activeSection.querySelector("button[onclick*='addNewUser']");
+    if (addBtn) {
+      addBtn.addEventListener("click", function(e) {
+        e.stopPropagation();
+        addNewUser(e);
+      });
+    }
   }
   
   lucide.createIcons();
@@ -624,10 +640,14 @@ async function loadUsers() {
   }
 }
 
-async function addNewUser() {
+async function addNewUser(event) {
+  if (event) event.preventDefault();
+  console.log("Add new user button clicked!");
   const username = document.getElementById("new-user-username").value.trim();
   const password = document.getElementById("new-user-password").value.trim();
   const role = document.getElementById("new-user-role").value;
+  
+  console.log("Form values:", { username, password, role });
   
   if (!username || !password) {
     return alert("Username dan Password harus diisi!");
