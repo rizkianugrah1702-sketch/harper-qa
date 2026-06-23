@@ -74,6 +74,7 @@ async function getOnce(ref) {
 }
 
 async function startSessionTimer(sessionId) {
+  console.log("startSessionTimer called with sessionId:", sessionId);
   // 1. Cek ID sesi terlebih dahulu
   if (!sessionId || sessionId === "undefined" || sessionId === undefined) {
     console.log("Timer dihentikan: ID sesi tidak valid.");
@@ -82,12 +83,14 @@ async function startSessionTimer(sessionId) {
 
   // 2. Bersihkan timer lama jika ada
   if (timerInterval) {
+    console.log("Clearing old timer interval");
     clearInterval(timerInterval);
     timerInterval = null;
   }
 
   // 3. Cari elemen timer di DOM
   const timerElement = document.getElementById('session-timer');
+  console.log("Timer element found:", timerElement);
   if (timerElement) {
     timerElement.style.display = 'inline-block';
   }
@@ -95,6 +98,7 @@ async function startSessionTimer(sessionId) {
   // 4. Fungsi update timer ke tengah malam
   function updateSessionTimer() {
     const sekarang = new Date();
+    console.log("Updating timer at:", sekarang.toLocaleTimeString());
         
     // Tentukan target: Jam 12 malam hari ini (alias jam 00:00 besok hari)
     const targetTengahMalam = new Date();
@@ -102,6 +106,7 @@ async function startSessionTimer(sessionId) {
     
     // Hitung selisih dalam milidetik
     const selisih = targetTengahMalam - sekarang;
+    console.log("Target midnight:", targetTengahMalam.toLocaleString(), "Difference (ms):", selisih);
     
     // Konversi selisih milidetik ke Jam, Menit, dan Detik
     const jam = Math.floor((selisih % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
@@ -112,14 +117,17 @@ async function startSessionTimer(sessionId) {
     const displayJam = jam.toString().padStart(2, '0');
     const displayMenit = menit.toString().padStart(2, '0');
     const displayDetik = detik.toString().padStart(2, '0');
+    const timerText = `${displayJam}:${displayMenit}:${displayDetik}`;
+    console.log("Displaying timer:", timerText);
     
     // Tampilkan ke elemen HTML timer
     if (timerElement) {
-      timerElement.textContent = `${displayJam}:${displayMenit}:${displayDetik}`;
+      timerElement.textContent = timerText;
     }
   }
 
   // 5. Jalankan fungsi timer
+  console.log("Starting timer interval");
   updateSessionTimer();
   timerInterval = setInterval(updateSessionTimer, 1000);
 }
