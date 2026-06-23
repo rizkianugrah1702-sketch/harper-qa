@@ -449,6 +449,7 @@ function showSystemSettings() {
   // Load users if administrator
   if (currentUser.role === "administrator") {
     loadUsers();
+    selectRoleInModal("admin");
   }
   
   lucide.createIcons();
@@ -653,7 +654,7 @@ async function addNewUser() {
     // Clear form
     document.getElementById("new-user-username").value = "";
     document.getElementById("new-user-password").value = "";
-    selectRoleInModal("user");
+    selectRoleInModal("admin");
     
     alert("User berhasil ditambahkan!");
   } catch (e) {
