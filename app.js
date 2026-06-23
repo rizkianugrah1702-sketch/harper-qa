@@ -148,7 +148,22 @@ let systemSettings = (() => {
     appFont: "Plus Jakarta Sans"
   };
 })();
-let currentUser = JSON.parse(localStorage.getItem("currentUser")) || null;
+// Validate and set current user from localStorage
+let currentUser = null;
+try {
+  const storedUser = localStorage.getItem("currentUser");
+  if (storedUser) {
+    const parsed = JSON.parse(storedUser);
+    if (parsed && parsed.username && parsed.role) {
+      currentUser = parsed;
+    } else {
+      localStorage.removeItem("currentUser");
+    }
+  }
+} catch (e) {
+  console.error("Error parsing stored user:", e);
+  localStorage.removeItem("currentUser");
+}
 let currentSessionId = getSessionFromUrl() || "";
 let isAdmin = currentUser && (currentUser.role === "admin" || currentUser.role === "user" || currentUser.role === "administrator");
 let activeReactionQuestionId = null;
@@ -261,25 +276,30 @@ async function loadSystemSettings() {
 
 
 async function initApp() {
-  await loadSystemSettings();
-  await loadSessions();
-  applySystemSettings();
-  updateAdminUI();
-  if (window.location.hash) {
-    currentSessionId = getSessionFromUrl(); // Already uppercase
-    if (isAdmin) {
-      showAdminQADashboard(currentSessionId);
+  try {
+    await loadSystemSettings();
+    await loadSessions();
+    applySystemSettings();
+    updateAdminUI();
+    if (window.location.hash) {
+      currentSessionId = getSessionFromUrl(); // Already uppercase
+      if (isAdmin) {
+        showAdminQADashboard(currentSessionId);
+      } else {
+        showParticipantView(currentSessionId);
+      }
     } else {
-      showParticipantView(currentSessionId);
+      if (isAdmin) {
+        showMasterDashboard();
+      } else {
+        showLandingPage();
+      }
     }
-  } else {
-    if (isAdmin) {
-      showMasterDashboard();
-    } else {
-      showLandingPage();
-    }
+    lucide.createIcons();
+  } catch (error) {
+    console.error("Error initializing app:", error);
+    showLandingPage();
   }
-  lucide.createIcons();
 }
 
 
@@ -559,46 +579,35 @@ async function loadUsers() {
   try {
     await waitForFirebase();
     const usersRef = window.firebaseRef(firebaseDatabase, 'users');
+    
+    // First, check if we need to create default admin
+    const snapshot = await new Promise((resolve) => {
+      window.firebaseOnValue(usersRef, resolve, { onlyOnce: true });
+    });
+    const data = snapshot.val();
+    
+    if (!data || !data.admin) {
+      // Create default admin
+      const defaultAdminRef = window.firebaseRef(firebaseDatabase, 'users/admin');
+      await window.firebaseSet(defaultAdminRef, {
+        username: "admin",
+        password: "admin",
+        role: "administrator"
+      });
+    }
+    
+    // Now set up real-time listener
     window.firebaseOnValue(usersRef, (snapshot) => {
       const data = snapshot.val();
       users = [];
       if (data) {
-        // Add default admin if not exists
-        if (!data.admin) {
-          const defaultAdminRef = window.firebaseRef(firebaseDatabase, 'users/admin');
-          window.firebaseSet(defaultAdminRef, {
-            username: "admin",
-            password: "admin",
-            role: "administrator"
-          });
-          // Push to users array
-          users.push({ username: "admin", role: "administrator" });
-        }
-        
-        // Add all other users
+        // Add all users
         for (const [username, userData] of Object.entries(data)) {
-          if (username !== "admin") {
-            users.push({
-              username: username,
-              role: userData.role || "user"
-            });
-          } else {
-            // Ensure admin has correct role
-            users.push({
-              username: "admin",
-              role: "administrator"
-            });
-          }
+          users.push({
+            username: username,
+            role: userData.role || "user"
+          });
         }
-      } else {
-        // If no users exist, create default admin
-        const defaultAdminRef = window.firebaseRef(firebaseDatabase, 'users/admin');
-        await window.firebaseSet(defaultAdminRef, {
-          username: "admin",
-          password: "admin",
-          role: "administrator"
-        });
-        users.push({ username: "admin", role: "administrator" });
       }
       renderUsers();
     });
