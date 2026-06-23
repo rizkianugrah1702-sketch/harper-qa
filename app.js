@@ -483,14 +483,6 @@ function switchSettingsTab(tabId) {
   
   if (tabId === "users") {
     selectRoleInModal("admin");
-    // Attach event listener for add new user button
-    const addBtn = activeSection.querySelector("button[onclick*='addNewUser']");
-    if (addBtn) {
-      addBtn.addEventListener("click", function(e) {
-        e.stopPropagation();
-        addNewUser(e);
-      });
-    }
   }
   
   lucide.createIcons();
@@ -641,19 +633,40 @@ async function loadUsers() {
 }
 
 async function addNewUser(event) {
-  if (event) event.preventDefault();
-  console.log("Add new user button clicked!");
-  const username = document.getElementById("new-user-username").value.trim();
-  const password = document.getElementById("new-user-password").value.trim();
-  const role = document.getElementById("new-user-role").value;
-  
-  console.log("Form values:", { username, password, role });
-  
-  if (!username || !password) {
-    return alert("Username dan Password harus diisi!");
-  }
-  
   try {
+    if (event) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+    console.log("Add new user button clicked!");
+    
+    const usernameInput = document.getElementById("new-user-username");
+    const passwordInput = document.getElementById("new-user-password");
+    const roleInput = document.getElementById("new-user-role");
+    
+    if (!usernameInput || !passwordInput || !roleInput) {
+      alert("Terjadi kesalahan pada form!");
+      return;
+    }
+    
+    const username = usernameInput.value.trim();
+    const password = passwordInput.value.trim();
+    const selectedRole = roleInput.value;
+    
+    console.log("Form values:", { username, password, selectedRole });
+    
+    // Validasi
+    if (!username || !password) {
+      alert("Username dan Password harus diisi!");
+      return;
+    }
+    
+    if (!selectedRole || (selectedRole !== "admin" && selectedRole !== "administrator")) {
+      alert("Silakan pilih role akses terlebih dahulu!");
+      selectRoleInModal("admin");
+      return;
+    }
+    
     await waitForFirebase();
     const userRef = window.firebaseRef(firebaseDatabase, `users/${username}`);
     
@@ -661,25 +674,26 @@ async function addNewUser(event) {
     const snapshot = await getOnce(userRef);
     
     if (snapshot.val()) {
-      return alert("Username sudah ada!");
+      alert("Username sudah ada!");
+      return;
     }
     
     // Create new user
     await window.firebaseSet(userRef, {
       username: username,
       password: password,
-      role: role
+      role: selectedRole
     });
     
     // Clear form
-    document.getElementById("new-user-username").value = "";
-    document.getElementById("new-user-password").value = "";
+    usernameInput.value = "";
+    passwordInput.value = "";
     selectRoleInModal("admin");
     
     alert("User berhasil ditambahkan!");
   } catch (e) {
     console.error("Error adding user:", e);
-    alert("Gagal menambahkan user!");
+    alert("Gagal menambahkan user! Error: " + e.message);
   }
 }
 
@@ -702,7 +716,11 @@ async function deleteUser(username) {
 }
 
 function selectRoleInModal(role) {
-  document.getElementById("new-user-role").value = role;
+  console.log("Selecting role:", role);
+  const hiddenInput = document.getElementById("new-user-role");
+  if (hiddenInput) {
+    hiddenInput.value = role;
+  }
   
   // Reset all buttons
   const btns = document.querySelectorAll(".role-selector-btn");
