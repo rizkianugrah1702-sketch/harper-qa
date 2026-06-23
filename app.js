@@ -824,22 +824,37 @@ async function loginAdminFromPage() {
   const user = document.getElementById("admin-page-username").value.trim();
   const pass = document.getElementById("admin-page-password").value.trim();
   
-  if (!user || !pass) return alert("Username dan Password harus diisi!");
+  if (!user || !pass) {
+    alert("Username dan Password harus diisi!");
+    return;
+  }
 
   const btn = document.querySelector('button[onclick="loginAdminFromPage()"]');
   btn.innerHTML = "Memproses...";
   btn.disabled = true;
 
   try {
+    // 1. Fallback akun administrator utama permanen
+    if (user === "administrator" && pass === "passwordadmin123") {
+      currentUser = { username: "administrator", role: "administrator", name: "Super Admin" };
+      isAdmin = true;
+      localStorage.setItem("currentUser", JSON.stringify(currentUser));
+      showMasterDashboard();
+      return;
+    }
+
+    // 2. Check Firebase for other users
     await waitForFirebase();
     const userRef = window.firebaseRef(firebaseDatabase, `users/${user}`);
-    const snapshot = await new Promise((resolve) => {
-      window.firebaseOnValue(userRef, resolve, { onlyOnce: true });
-    });
+    const snapshot = await getOnce(userRef);
     const userData = snapshot.val();
     
     if (userData && userData.password === pass) {
-      currentUser = { username: user, role: userData.role || "user" };
+      currentUser = { 
+        username: user, 
+        role: userData.role || "user", 
+        name: userData.name || user 
+      };
       isAdmin = true;
       localStorage.setItem("currentUser", JSON.stringify(currentUser));
       showMasterDashboard();
@@ -848,7 +863,7 @@ async function loginAdminFromPage() {
     }
   } catch (error) {
     console.error("Login error:", error);
-    alert("Login gagal.");
+    alert("Terjadi kesalahan koneksi database!");
   } finally {
     btn.innerHTML = "Masuk Sekarang";
     btn.disabled = false;
@@ -875,9 +890,7 @@ async function joinSessionByCode() {
   try {
     await waitForFirebase();
     const sessionRef = window.firebaseRef(firebaseDatabase, `sessions/${code}`);
-    const snapshot = await new Promise((resolve) => {
-      window.firebaseOnValue(sessionRef, resolve, { onlyOnce: true });
-    });
+    const snapshot = await getOnce(sessionRef);
     const sessionData = snapshot.val();
 
     if (sessionData) {
