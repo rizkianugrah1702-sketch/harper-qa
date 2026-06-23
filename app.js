@@ -45,30 +45,31 @@ function waitForFirebase() {
 async function getOnce(ref) {
   console.log("getOnce called with ref:", ref);
   return new Promise((resolve, reject) => {
-    let unsubscribe; // Declare first to be hoisting safe
-    let timeoutId; // Declare timeout first
-    
-    unsubscribe = window.firebaseOnValue(ref, (snapshot) => {
-      console.log("getOnce got snapshot:", snapshot);
-      clearTimeout(timeoutId);
-      if (typeof unsubscribe === "function") {
-        unsubscribe(); // Now safe to call
-      }
-      resolve(snapshot);
-    }, (error) => {
-      clearTimeout(timeoutId);
-      if (typeof unsubscribe === "function") {
-        unsubscribe();
-      }
-      reject(error);
-    });
+    let isResolved = false;
+    let timeoutId = null;
     
     timeoutId = setTimeout(() => {
-      if (typeof unsubscribe === "function") {
-        unsubscribe();
-      }
+      isResolved = true;
       reject(new Error("getOnce timeout!"));
     }, 5000);
+    
+    const unsubscribe = window.firebaseOnValue(ref, (snapshot) => {
+      console.log("getOnce got snapshot:", snapshot);
+      clearTimeout(timeoutId);
+      if (!isResolved) {
+        isResolved = true;
+        unsubscribe();
+        resolve(snapshot);
+      }
+    }, (error) => {
+      console.error("getOnce error:", error);
+      clearTimeout(timeoutId);
+      if (!isResolved) {
+        isResolved = true;
+        unsubscribe();
+        reject(error);
+      }
+    });
   });
 }
 
