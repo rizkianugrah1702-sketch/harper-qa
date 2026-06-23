@@ -979,8 +979,20 @@ async function fetchQuestionsFromServer() {
         };
       }
 
-      // Balik urutan dan urutkan berdasarkan timestamp agar pertanyaan terbaru di atas
-      questionsData.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+      console.log("Data pertanyaan sebelum sorting:", questionsData.map(q => ({ id: q.id, timestamp: q.timestamp, text: q.text.substring(0, 20) })));
+      
+      // Balik urutan dan urutkan berdasarkan timestamp (jika ada), atau Firebase key (fallback) agar pertanyaan terbaru di atas
+      questionsData.sort((a, b) => {
+        // Pertama cek timestamp
+        if (a.timestamp && b.timestamp) {
+          return b.timestamp - a.timestamp;
+        }
+        // Jika salah satu tidak punya timestamp, gunakan Firebase key (push ID otomatis terurut waktu)
+        // Firebase key diurutkan secara ascending, jadi kita balik agar terbaru di atas
+        return b.id.localeCompare(a.id);
+      });
+      
+      console.log("Data pertanyaan setelah sorting:", questionsData.map(q => ({ id: q.id, timestamp: q.timestamp, text: q.text.substring(0, 20) })));
       
       sessions[currentSessionId].questions = questionsData;
       renderQuestions(); // Render INSTAN!
