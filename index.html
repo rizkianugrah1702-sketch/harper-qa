@@ -146,9 +146,6 @@
                         <span class="text-[10px] font-black text-slate-600 uppercase tracking-widest">Secure Access</span>
                     </div>
                     <div class="h-10 w-[1px] bg-slate-100 mx-2"></div>
-                    <button onclick="showUserManagement()" class="p-3.5 text-slate-400 hover:main-text-primary transition-all bg-white border border-slate-100 rounded-2xl shadow-sm hover:shadow-md hover:-translate-y-0.5 group" title="Tambah / Kelola User">
-                        <i data-lucide="user-plus" class="w-6 h-6 group-hover:scale-110 transition-transform"></i>
-                    </button>
                     <button onclick="logoutAdmin()" class="p-3.5 text-slate-400 hover:text-red-600 transition-all bg-white border border-slate-100 rounded-2xl shadow-sm hover:shadow-md hover:-translate-y-0.5 group" title="Logout">
                         <i data-lucide="log-out" class="w-6 h-6 group-hover:translate-x-0.5 transition-transform"></i>
                     </button>
@@ -664,6 +661,10 @@
                         <i data-lucide="bell" class="w-5 h-5"></i>
                         Pengaturan Notifikasi
                     </button>
+                    <button onclick="switchSettingsTab('users')" id="tab-btn-users" class="settings-tab-btn flex items-center gap-4 px-5 py-4 rounded-2xl font-black text-sm transition-all text-slate-400 hover:text-slate-600 hover:bg-white/50" style="display: none;">
+                        <i data-lucide="users" class="w-5 h-5"></i>
+                        Manajemen User
+                    </button>
                 </aside>
 
                 <!-- Content Area -->
@@ -853,10 +854,70 @@
                             </div>
                         </div>
                     </div>
+
+                    <!-- Users Management Section -->
+                    <div id="settings-section-users" class="settings-section hidden space-y-8 animate-fade-in">
+                        <div class="space-y-2">
+                            <h4 class="text-2xl font-black text-slate-900 tracking-tight">Manajemen User</h4>
+                            <p class="text-slate-500 font-medium">Atur hak akses admin dan user chat. Hanya administrator yang dapat mengakses halaman ini.</p>
+                        </div>
+
+                        <div class="space-y-6 bg-slate-50/50 p-8 rounded-[2rem] border-2 border-slate-100/50">
+                            <h4 class="font-black text-slate-900 uppercase text-xs tracking-[0.2em] flex items-center gap-2 opacity-50">
+                                Tambah User Baru
+                            </h4>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div class="space-y-2">
+                                    <label class="text-sm font-bold text-slate-700 ml-1">Username</label>
+                                    <div class="relative">
+                                        <i data-lucide="user" class="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 w-5 h-5"></i>
+                                        <input type="text" id="new-user-username" class="w-full pl-12 pr-4 py-3.5 bg-white border-2 border-transparent rounded-2xl focus:border-slate-900 outline-none transition-all font-medium text-slate-800" placeholder="Username">
+                                    </div>
+                                </div>
+                                <div class="space-y-2">
+                                    <label class="text-sm font-bold text-slate-700 ml-1">Password</label>
+                                    <div class="relative">
+                                        <i data-lucide="key-round" class="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 w-5 h-5"></i>
+                                        <input type="password" id="new-user-password" class="w-full pl-12 pr-4 py-3.5 bg-white border-2 border-transparent rounded-2xl focus:border-slate-900 outline-none transition-all font-medium text-slate-800" placeholder="••••••••">
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="space-y-2">
+                                <label class="text-sm font-bold text-slate-700 ml-1">Role Akses</label>
+                                <div class="grid grid-cols-3 gap-3">
+                                    <button onclick="selectRoleInModal('user')" id="role-btn-user" class="role-selector-btn flex flex-col items-start p-4 rounded-2xl border-2 transition-all text-left bg-white border-slate-100 hover:border-slate-200">
+                                        <span class="font-black text-slate-900">User</span>
+                                        <span class="text-xs text-slate-400 font-bold">Hanya Chat</span>
+                                    </button>
+                                    <button onclick="selectRoleInModal('admin')" id="role-btn-admin" class="role-selector-btn flex flex-col items-start p-4 rounded-2xl border-2 transition-all text-left bg-white border-slate-100 hover:border-slate-200">
+                                        <span class="font-black text-slate-900">Admin</span>
+                                        <span class="text-xs text-slate-400 font-bold">Kelola Sesi</span>
+                                    </button>
+                                    <button onclick="selectRoleInModal('administrator')" id="role-btn-administrator" class="role-selector-btn flex flex-col items-start p-4 rounded-2xl border-2 transition-all text-left bg-white border-slate-100 hover:border-slate-200">
+                                        <span class="font-black text-slate-900">Administrator</span>
+                                        <span class="text-xs text-slate-400 font-bold">Full Access</span>
+                                    </button>
+                                    <input type="hidden" id="new-user-role" value="user">
+                                </div>
+                            </div>
+                            <button onclick="addNewUser()" class="w-full main-primary text-white py-4 rounded-2xl font-black text-lg hover:opacity-90 transition-all shadow-xl shadow-orange-200 flex items-center justify-center gap-3">
+                                <i data-lucide="plus" class="w-6 h-6"></i>
+                                Tambah User Baru
+                            </button>
+                        </div>
+
+                        <div class="flex-1 overflow-y-auto custom-scrollbar pr-2 space-y-4">
+                            <div class="flex items-center justify-between mb-4 px-2">
+                                <h4 class="font-black text-slate-900 uppercase text-[10px] tracking-[0.2em] opacity-50">Daftar User Aktif</h4>
+                                <span id="user-count-badge" class="bg-slate-100 text-slate-600 px-4 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest">0 USER</span>
+                            </div>
+                            <div id="user-list-container" class="grid grid-cols-1 gap-4">
+                                <!-- User list will be rendered here as modern cards -->
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
-
-            <!-- Modal Footer -->
             <div class="px-10 py-8 border-t border-slate-100 flex gap-4 shrink-0 bg-slate-50/50">
                 <button onclick="hideSystemSettings()" class="flex-1 px-8 py-4 bg-white text-slate-500 border border-slate-200 rounded-2xl font-black hover:bg-slate-50 transition-all">Batal</button>
                 <button onclick="confirmSaveSystemSettings()" class="flex-[2] main-primary text-white py-4 rounded-2xl font-black text-xl hover:opacity-90 transition-all shadow-xl shadow-orange-200 flex items-center justify-center gap-3">
