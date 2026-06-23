@@ -33,6 +33,19 @@ function waitForFirebase() {
     });
 }
 
+// Helper: one-time read from Firebase
+async function getOnce(ref) {
+  return new Promise((resolve) => {
+    let unsubscribe = null;
+    unsubscribe = window.firebaseOnValue(ref, (snapshot) => {
+      if (unsubscribe) {
+        unsubscribe();
+      }
+      resolve(snapshot);
+    });
+  });
+}
+
 async function startSessionTimer(sessionId) {
   // 1. KUNCI LOGIKA TIMER OTOMATIS: Cek ID sesi terlebih dahulu!
   if (!sessionId || sessionId === "undefined" || sessionId === undefined) {
@@ -49,9 +62,7 @@ async function startSessionTimer(sessionId) {
   const sessionRef = window.firebaseRef(firebaseDatabase, `sessions/${sessionId}`);
 
   // Cek apakah sesi masih ada di Firebase sebelum melanjutkan
-  const snapshot = await new Promise((resolve) => {
-    window.firebaseOnValue(sessionRef, resolve, { onlyOnce: true });
-  });
+  const snapshot = await getOnce(sessionRef);
   let sessionData = snapshot.val();
   
   // Jika sesi tidak ada di Firebase, berhenti!
@@ -88,9 +99,7 @@ async function startSessionTimer(sessionId) {
 
     if (sisaWaktu <= 0) {
       // Cek sekali lagi apakah sesi masih ada sebelum menghapus
-      const checkSnapshot = await new Promise((resolve) => {
-        window.firebaseOnValue(sessionRef, resolve, { onlyOnce: true });
-      });
+      const checkSnapshot = await getOnce(sessionRef);
       if (!checkSnapshot.val()) {
         clearInterval(timerInterval);
         timerInterval = null;
@@ -581,9 +590,7 @@ async function loadUsers() {
     const usersRef = window.firebaseRef(firebaseDatabase, 'users');
     
     // First, check if we need to create default admin
-    const snapshot = await new Promise((resolve) => {
-      window.firebaseOnValue(usersRef, resolve, { onlyOnce: true });
-    });
+    const snapshot = await getOnce(usersRef);
     const data = snapshot.val();
     
     if (!data || !data.admin) {
@@ -630,9 +637,7 @@ async function addNewUser() {
     const userRef = window.firebaseRef(firebaseDatabase, `users/${username}`);
     
     // Check if user already exists
-    const snapshot = await new Promise((resolve) => {
-      window.firebaseOnValue(userRef, resolve, { onlyOnce: true });
-    });
+    const snapshot = await getOnce(userRef);
     
     if (snapshot.val()) {
       return alert("Username sudah ada!");
